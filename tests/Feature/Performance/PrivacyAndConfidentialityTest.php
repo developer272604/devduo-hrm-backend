@@ -150,4 +150,28 @@ class PrivacyAndConfidentialityTest extends PerformanceTestCase
         $all = $this->signIn($this->admin)->getJson($this->p('dashboard'))->json();
         $this->assertGreaterThan(3, $all['reviews']['total']);
     }
+
+    public function test_my_one_on_one_journal_hides_private_notes_from_the_employee(): void
+    {
+        $this->actAs($this->mgr);
+        $this->postJson($this->p('one-on-ones'), ['employee_uuid' => $this->emp1->uuid, 'held_on' => '2026-10-06', 'shared_notes' => 'Agreed on goals', 'private_notes' => 'Watch workload'])->assertCreated();
+        $this->assertSame('Watch workload', $this->getJson($this->p('one-on-ones'))->assertOk()->json('data.0.private_notes'));
+        $row = $this->actAs($this->emp1)->getJson($this->p('one-on-ones'))->assertOk()->json('data.0');
+        $this->assertSame('Agreed on goals', $row['shared_notes']);
+        $this->assertNull($row['private_notes']);
+        $this->assertSame('Arun Kumar', $row['employee']['name']);
+        $this->actAs($this->emp2)->getJson($this->p('one-on-ones'))->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_dashboard_lists_late_work_without_reviewer_identity(): void
+    {
+        $cycle = $this->cycle(['self_due' => '2026-01-15', 'manager_due' => '2026-01-20']);
+        $this->reviewOf($cycle, $this->emp1);
+        $d = $this->signIn($this->admin)->getJson($this->p('dashboard'))->assertOk()->json();
+        $this->assertGreaterThan(0, $d['late_responses']);
+        $this->assertNotEmpty($d['late_list']);
+        $row = $d['late_list'][0];
+        $this->assertSame(['days_late', 'due_on', 'employee', 'review_uuid', 'reviewer_type'], collect(array_keys($row))->sort()->values()->all());
+        $this->assertGreaterThan(0, $row['days_late']);
+    }
 }

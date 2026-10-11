@@ -47,3 +47,12 @@ Schedule::command('workflows:advance')->everyMinute()->withoutOverlapping();
 // Leave ledger operations (workstream B): idempotent nightly accrual, then expiry + alerts (+ optional auto carry-forward).
 Schedule::command('leave:accrue-nightly')->dailyAt('02:00');
 Schedule::command('leave:process-expiry')->dailyAt('02:30');
+
+// Learning: mandatory-training assignment + overdue escalation, certificate expiry reminders (idempotent per tenant).
+Schedule::command('learning:compliance-run')->dailyAt('05:30');
+Schedule::command('learning:certificate-reminders')->dailyAt('05:45');
+Schedule::command('integrations:run-due')->everyMinute()->withoutOverlapping();
+Schedule::command('intelligence:scan')->dailyAt('04:30')->withoutOverlapping();
+
+// Analytics: scheduled report delivery (idempotent per slot) and expired file purge.
+Schedule::command('analytics:deliver-reports')->everyFiveMinutes()->withoutOverlapping();

@@ -190,6 +190,7 @@ final class SurveyService
         $today = TenantClock::today();
         $purged = 0;
         foreach (Survey::whereNotNull('retention_until')->where('retention_until', '<', $today)->whereNull('data_purged_at')->get() as $survey) {
+            if (\App\Domain\Security\LegalHoldService::held('experience', 'survey:'.$survey->uuid)) continue; // legal hold
             DB::transaction(function () use ($survey, &$purged) {
                 SurveyAnswerCount::where('survey_id', $survey->id)->delete();
                 SurveyConfidentialResponse::where('survey_id', $survey->id)->delete();

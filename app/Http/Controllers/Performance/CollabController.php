@@ -49,6 +49,20 @@ final class CollabController
         return response()->json($this->collab->presentOneOnOne($n, $r->user()), 201);
     }
 
+    /** The viewer's own 1:1 journal: sessions about them, plus sessions they authored (private notes only for the author). */
+    public function myOneOnOnes(Request $r)
+    {
+        $own = $this->access->own($r->user()) ?: [0];
+
+        return \App\Domain\Performance\Models\OneOnOne::where(function ($q) use ($own, $r) {
+            $q->where('author_id', $r->user()->id)->orWhere(fn ($w) => $w->whereIn('employee_id', $own)->whereNotNull('shared_notes'));
+        })->orderByDesc('held_on')->orderByDesc('id')->paginate(25)->through(function ($n) use ($r) {
+            $e = Employee::with('person')->find($n->employee_id);
+
+            return $this->collab->presentOneOnOne($n, $r->user()) + ['employee' => ['uuid' => $e->uuid, 'name' => trim(($e->person->legal_first_name ?? '').' '.($e->person->legal_last_name ?? ''))]];
+        });
+    }
+
     public function oneOnOnes(Request $r, string $uuid)
     {
         return $this->collab->oneOnOnes($r->user(), $this->access->employeeByUuid($uuid))->paginate(25)->through(fn ($n) => $this->collab->presentOneOnOne($n, $r->user()));

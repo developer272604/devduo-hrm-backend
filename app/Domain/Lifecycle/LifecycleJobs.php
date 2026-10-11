@@ -49,7 +49,8 @@ final class LifecycleJobs
                 report($e);
             }
         }
-        $purged = ExitInterview::where('status', 'submitted')->where('retention_until', '<', $today)->update(['answers' => null, 'status' => 'purged']);
+        // Legal hold (Phase 15): a lifecycle/workspace-wide hold suspends exit-data purging.
+        $purged = \App\Domain\Security\LegalHoldService::held('lifecycle') ? 0 : ExitInterview::where('status', 'submitted')->where('retention_until', '<', $today)->update(['answers' => null, 'status' => 'purged']);
 
         return ['moves_applied' => $applied, 'exit_data_purged' => $purged];
     }

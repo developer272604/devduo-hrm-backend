@@ -137,8 +137,15 @@ final class WorkspaceProvisioner
         'time.configure' => ['Time administration', 'Configure shifts and policies'], 'time.lock' => ['Time administration', 'Lock and independently unlock periods'],
         'organization.view' => ['Organization', 'View organization'], 'organization.manage' => ['Organization', 'Manage organization'],
         'integrations.view' => ['Integrations', 'View integration connections and sync health'], 'integrations.manage' => ['Integrations', 'Manage integration metadata and diagnostics'],
+        'integrations.api_clients.manage' => ['Integrations', 'Create, rotate and revoke public API clients'], 'integrations.webhooks.manage' => ['Integrations', 'Manage outbound webhooks and replay deliveries'], 'integrations.imports.manage' => ['Integrations', 'Manage file import profiles and run them'],
         'security.access_reviews.view' => ['Security', 'View access review campaigns'], 'security.access_reviews.manage' => ['Security', 'Create and complete access reviews'],
+        'security.settings.manage' => ['Security', 'Manage MFA enforcement, session, password and SSO settings'], 'security.mfa.manage' => ['Security', 'Reset a user\'s MFA enrolment'],
+        'security.sessions.manage' => ['Security', 'Force sign-out of a user\'s sessions'], 'security.audit.view' => ['Security', 'Search the audit log'],
+        'security.audit.verify' => ['Security', 'Verify audit hash-chain integrity'], 'security.audit.export' => ['Security', 'Export audit evidence (purpose required)'],
+        'security.legal_hold.manage' => ['Security', 'Place and release legal holds'], 'security.retention.manage' => ['Security', 'Manage the retention policy registry'],
         'intelligence.view' => ['Intelligence', 'View permission-filtered HR findings'],
+        'intelligence.manage' => ['Intelligence', 'Acknowledge, snooze, resolve findings and create tasks from them'], 'intelligence.scenarios.run' => ['Intelligence', 'Run read-only what-if scenarios'],
+        'intelligence.risk_signals.view' => ['Intelligence', 'View privacy-guarded workforce risk indicators for human review'], 'intelligence.settings.manage' => ['Intelligence', 'Enable risk signals and set the small-cohort threshold'],
         'users.view' => ['People & access', 'View users and roles'], 'users.manage' => ['People & access', 'Manage users and assign roles'],
         'roles.manage' => ['People & access', 'Manage permissions and roles'], 'settings.manage' => ['Administration', 'Manage company settings'],
         'lifecycle.view' => ['Lifecycle', 'View onboarding, offboarding and move cases in scope'],
@@ -192,12 +199,15 @@ final class WorkspaceProvisioner
         'expenses.payments.confirm' => ['Expenses', 'Record externally confirmed reimbursements'],
         'travel.self' => ['Travel', 'Submit and view your travel requests'],
         'travel.approve' => ['Travel', 'Independently approve travel within your employee scope'],
+        'travel.manage' => ['Travel', 'Record bookings, advance finance references and close post-trip reconciliations'], 'expenses.fx.manage' => ['Expenses', 'Maintain FX rates and request rate overrides'], 'expenses.fx.approve' => ['Expenses', 'Independently approve FX rate overrides'],
+        'operations.reports.view' => ['Assets, expenses and travel', 'View spend, violation and asset utilization reports in your scope'], 'operations.reports.export' => ['Assets, expenses and travel', 'Export masked operations reports with a stated purpose'],
         'workflows.manage' => ['Workflows', 'Design workflows and recover instances'],
         'workflows.publish' => ['Workflows', 'Independently publish workflow versions'],
         'workflows.run' => ['Workflows', 'Initiate published workflows'],
         'workflows.act' => ['Workflows', 'View and decide assigned workflow tasks'],
         'analytics.view' => ['Analytics', 'Query authorized aggregate metrics'],
         'analytics.export' => ['Analytics', 'Export authorized aggregate reports'],
+        'analytics.dashboards.manage' => ['Analytics', 'Create role dashboards and schedule report delivery'],
         'audit.view' => ['Administration', 'View audit history'], 'work.view' => ['My Work', 'View tasks'], 'work.manage' => ['My Work', 'Create and update tasks'],
     ];
 
@@ -208,10 +218,10 @@ final class WorkspaceProvisioner
 
     private const MEMBER = ['learning.self', 'experience.self', 'performance.self', 'lifecycle.self', 'work.view', 'work.manage', 'people.view', 'people.directory', 'attendance.view', 'leave.view', 'leave.request', ...self::PAYROLL_SELF];
 
-    private const MANAGER = ['learning.self', 'learning.view', 'learning.skills.validate', 'learning.enrol.approve', 'learning.requests.approve', 'learning.reports.view', 'experience.self', 'experience.view', 'performance.self', 'performance.view', 'performance.goals.manage', 'performance.goals.approve', 'performance.reviews.manage', 'performance.reports.view', 'lifecycle.self', 'work.view', 'work.manage', 'people.view', 'people.directory', 'attendance.view', 'attendance.team.view', 'attendance.approve', 'attendance.overtime.approve', 'attendance.reports.view', 'leave.view', 'leave.request', 'leave.team.view', 'leave.approve', 'leave.reports.view', 'people.changes.approve', 'people.quality.view', ...self::PAYROLL_SELF];
+    private const MANAGER = ['learning.self', 'learning.view', 'learning.enrol.manage', 'learning.skills.validate', 'learning.enrol.approve', 'learning.requests.approve', 'learning.reports.view', 'experience.self', 'experience.view', 'performance.self', 'performance.view', 'performance.goals.manage', 'performance.goals.approve', 'performance.reviews.manage', 'performance.reports.view', 'lifecycle.self', 'work.view', 'work.manage', 'people.view', 'people.directory', 'attendance.view', 'attendance.team.view', 'attendance.approve', 'attendance.overtime.approve', 'attendance.reports.view', 'leave.view', 'leave.request', 'leave.team.view', 'leave.approve', 'leave.reports.view', 'people.changes.approve', 'people.quality.view', ...self::PAYROLL_SELF];
 
     /** HR gets everything except platform administration. */
-    private const HR_EXCLUDED = ['workflows.publish', 'expenses.manage', 'expenses.payments.confirm', 'roles.manage', 'settings.manage', 'users.manage', 'recruitment.confidential', 'performance.feedback.reveal', 'experience.survey.identifiable.view'];
+    private const HR_EXCLUDED = ['workflows.publish', 'expenses.manage', 'expenses.payments.confirm', 'roles.manage', 'settings.manage', 'users.manage', 'recruitment.confidential', 'performance.feedback.reveal', 'experience.survey.identifiable.view', 'security.settings.manage', 'security.mfa.manage', 'security.sessions.manage', 'security.audit.view', 'security.audit.verify', 'security.audit.export', 'security.legal_hold.manage', 'security.retention.manage'];
 
     /** Payroll administration keys (everything except self-service) are never part of the default HR administrator role. */
     private static function hrExcluded(): array
@@ -235,8 +245,8 @@ final class WorkspaceProvisioner
         return [
             'Workspace administrator' => ['Full access to company administration.', 'tenant', true, array_keys(self::PERMISSIONS)],
             'HR administrator' => ['People and time-office administration across the company.', 'tenant', false, array_values(array_diff(array_keys(self::PERMISSIONS), self::hrExcluded()))],
-            'Manager' => ['Manage your direct reports: approvals and team attendance.', 'direct_reports', false, [...self::MANAGER, 'assets.self', 'expenses.self', 'expenses.approve', 'travel.self', 'travel.approve', 'workflows.act', 'analytics.view', 'intelligence.view']],
-            'Team member' => ['Manage your own work.', 'self', false, [...self::MEMBER, 'assets.self', 'expenses.self', 'travel.self', 'workflows.act', 'intelligence.view']],
+            'Manager' => ['Manage your direct reports: approvals and team attendance.', 'direct_reports', false, [...self::MANAGER, 'assets.self', 'expenses.self', 'expenses.approve', 'travel.self', 'travel.approve', 'workflows.act', 'analytics.view', 'intelligence.view', 'intelligence.manage', 'intelligence.scenarios.run', 'intelligence.risk_signals.view']],
+            'Team member' => ['Manage your own work.', 'self', false, [...self::MEMBER, 'assets.self', 'expenses.self', 'travel.self', 'workflows.act', 'intelligence.view', 'intelligence.manage']],
         ];
     }
 

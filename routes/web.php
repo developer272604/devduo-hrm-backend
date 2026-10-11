@@ -13,8 +13,10 @@ Route::get('/', fn () => response()->json(['app' => 'devduo HRM', 'status' => 'o
 Route::prefix('api')->group(function () {
     // Device ingestion (token-authenticated, tenant resolved from the device): see routes/device.php.
     Route::prefix('device/v1')->middleware(['device', 'throttle:600,1'])->group(__DIR__.'/device.php');
+    Route::prefix('public/v1')->group(__DIR__.'/integrations_public.php');
     Route::get('csrf', [AuthController::class, 'csrf']);
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:30,1');
+    Route::post('login/mfa', [AuthController::class, 'loginMfa'])->middleware('throttle:20,1');
     Route::post('forgot-password', [AuthController::class, 'forgot'])->middleware('throttle:5,1');
     Route::post('reset-password', [AuthController::class, 'reset'])->middleware('throttle:5,1');
     Route::middleware(['auth', 'tenant', 'throttle:120,1'])->group(function () {

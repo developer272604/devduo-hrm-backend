@@ -16,13 +16,22 @@ final class ExpenseController {
     }
     public function index(Request $r) { return $this->expenses->visible($r->user())->latest('id')->paginate(25)->through(fn ($c) => $this->expenses->present($c, $r->user())); }
     public function show(Request $r, string $uuid) { return $this->expenses->present($this->expenses->visible($r->user())->where('uuid', $uuid)->firstOrFail(), $r->user(), true); }
+    private function lineRules(): array {
+        return ['lines' => 'required|array|min:1|max:20', 'lines.*.spent_on' => 'required|date_format:Y-m-d', 'lines.*.merchant' => 'required|string|max:150', 'lines.*.description' => 'required|string|max:500',
+            'lines.*.amount' => 'nullable|string|max:20', 'lines.*.kind' => 'nullable|in:amount,mileage,per_diem', 'lines.*.quantity' => 'nullable|string|max:12', 'lines.*.currency' => 'nullable|in:USD,EUR,GBP,INR,JPY,KWD',
+            'lines.*.category' => 'nullable|string|max:80', 'lines.*.receipt_uuid' => 'nullable|uuid', 'lines.*.allocations' => 'nullable|array|max:10',
+            'lines.*.allocations.*.cost_center_id' => 'required|integer', 'lines.*.allocations.*.amount' => 'required|string|max:20'];
+    }
     public function create(Request $r) {
-        $d = $r->validate(['title' => 'required|string|max:200', 'policy_uuid' => 'required|uuid', 'lines' => 'required|array|min:1|max:20',
-            'lines.*.spent_on' => 'required|date_format:Y-m-d', 'lines.*.merchant' => 'required|string|max:150', 'lines.*.description' => 'required|string|max:500', 'lines.*.amount' => 'required|string|max:20']);
+        $d = $r->validate(['title' => 'required|string|max:200', 'policy_uuid' => 'required|uuid', 'travel_request_uuid' => 'nullable|uuid'] + $this->lineRules());
         return response()->json($this->expenses->present($this->expenses->create($r->user(), $d), $r->user(), true), 201);
     }
+    public function update(Request $r, string $uuid) {
+        $d = $r->validate(['title' => 'nullable|string|max:200'] + $this->lineRules());
+        return $this->expenses->present($this->expenses->update($r->user(), $uuid, $d), $r->user(), true);
+    }
     public function action(Request $r, string $uuid) {
-        $d = $r->validate(['action' => 'required|in:submit,approve,reject,confirm_payment', 'reason' => 'required_if:action,approve,reject|string|max:1000', 'payment_reference' => 'required_if:action,confirm_payment|string|max:150']);
+        $d = $r->validate(['action' => 'required|in:submit,withdraw,approve,reject,confirm_payment', 'reason' => 'required_if:action,approve,reject|string|max:1000', 'payment_reference' => 'required_if:action,confirm_payment|string|max:150']);
         return $this->expenses->present($this->expenses->action($r->user(), $uuid, $d), $r->user(), true);
     }
     public function upload(Request $r, string $uuid) {

@@ -176,7 +176,7 @@ final class CatalogService
             foreach ($correct as $ix) if (! isset($q['options'][$ix])) throw ValidationException::withMessages(['questions' => 'Question '.($i + 1).' has a correct answer that is not one of its options.']);
             $qs[] = ['id' => 'q'.($i + 1), 'text' => $q['text'], 'options' => array_values($q['options']), 'correct' => $correct, 'points' => $q['points'] ?? 1];
         }
-        $a = Assessment::create(['course_id' => $c->id, 'title' => $d['title'], 'pass_percent' => $d['pass_percent'] ?? ($c->pass_percent ?? 70), 'questions' => $qs, 'active' => true]);
+        $a = Assessment::create(['course_id' => $c->id, 'title' => $d['title'], 'pass_percent' => $d['pass_percent'] ?? ($c->pass_percent ?? 70), 'questions' => $qs, 'active' => true, 'max_attempts' => array_key_exists('max_attempts', $d) ? $d['max_attempts'] : 3]);
         Audit::record('assessment.created', 'learning', 'course:'.$c->uuid, ['assessment' => $a->uuid]);
 
         return $a;

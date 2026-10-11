@@ -18,12 +18,17 @@ final class OperationsEmployee360Provider implements Employee360Provider {
         }
         if (in_array('expenses', $modules)) {
             foreach (app(ExpenseService::class)->visible($viewer)->where('employee_id', $employee->id)->latest('id')->limit(5)->get() as $c) {
-                $items[] = ['key' => 'claim:'.$c->uuid, 'label' => 'Expense claim', 'value' => $c->status, 'date' => $c->created_at->toDateString(), 'source' => 'expenses'];
+                $items[] = ['key' => 'claim:'.$c->uuid, 'label' => 'Expense claim', 'value' => $c->status.($c->escalated ? ' (escalated)' : ''), 'date' => $c->created_at->toDateString(), 'source' => 'expenses'];
             }
         }
         if (in_array('travel', $modules)) {
             foreach (app(TravelService::class)->visible($viewer)->where('employee_id', $employee->id)->latest('id')->limit(5)->get() as $t) {
                 $items[] = ['key' => 'trip:'.$t->uuid, 'label' => 'Travel request', 'value' => $t->status, 'date' => $t->created_at->toDateString(), 'source' => 'travel'];
+                $advances = \App\Domain\Travel\Models\TravelAdvance::where('travel_request_id', $t->id)->whereIn('status', ['requested', 'approved'])->count();
+                if ($advances) $items[] = ['key' => 'advances:'.$t->uuid, 'label' => 'Travel advances open', 'value' => (string) $advances, 'date' => $t->created_at->toDateString(), 'source' => 'travel'];
+                if ($t->status === 'approved' && ! \App\Domain\Travel\Models\TravelReconciliation::where('travel_request_id', $t->id)->exists() && $t->ends_on->toDateString() < \App\Domain\Tenancy\TenantClock::today()) {
+                    $items[] = ['key' => 'reconcile:'.$t->uuid, 'label' => 'Trip reconciliation', 'value' => 'pending', 'date' => $t->ends_on->toDateString(), 'source' => 'travel'];
+                }
             }
         }
         return $items ? [['key' => 'operations', 'title' => 'Assets, expenses and travel', 'order' => 90, 'source' => 'operations', 'items' => $items]] : [];

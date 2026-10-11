@@ -12,11 +12,11 @@ class User extends Authenticatable
 
     protected $fillable = ['name', 'email', 'password', 'active'];
 
-    protected $hidden = ['password', 'remember_token', 'session_version'];
+    protected $hidden = ['password', 'remember_token', 'session_version', 'failed_logins', 'locked_until'];
 
     protected function casts(): array
     {
-        return ['password' => 'hashed', 'active' => 'boolean', 'email_verified_at' => 'datetime', 'session_version' => 'integer'];
+        return ['password' => 'hashed', 'active' => 'boolean', 'email_verified_at' => 'datetime', 'session_version' => 'integer', 'password_changed_at' => 'datetime', 'locked_until' => 'datetime'];
     }
 
     public function tenant()

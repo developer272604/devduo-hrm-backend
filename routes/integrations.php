@@ -11,3 +11,35 @@ Route::prefix('v1/integrations')->middleware('module:integrations')->group(funct
     Route::post('connections/{uuid}/test', [IntegrationController::class, 'test'])->middleware('permission:integrations.manage');
     Route::post('connections/{uuid}/revoke', [IntegrationController::class, 'revoke'])->middleware('permission:integrations.manage');
 });
+
+// Phase 14 platform runtime: API clients, outbound webhooks, file import profiles/runs, health center.
+Route::prefix('v1/integrations')->middleware('module:integrations')->group(function () {
+    $view = 'permission:integrations.view|integrations.manage|integrations.api_clients.manage|integrations.webhooks.manage|integrations.imports.manage';
+    $C = \App\Http\Controllers\Integrations\PlatformController::class;
+    Route::get('health', [$C, 'health'])->middleware($view);
+    Route::get('diagnostics', [$C, 'diagnostics'])->middleware($view);
+
+    Route::get('api-clients', [$C, 'clients'])->middleware($view);
+    Route::post('api-clients', [$C, 'createClient'])->middleware('permission:integrations.api_clients.manage');
+    Route::patch('api-clients/{uuid}', [$C, 'updateClient'])->whereUuid('uuid')->middleware('permission:integrations.api_clients.manage');
+    Route::post('api-clients/{uuid}/rotate', [$C, 'rotateClient'])->whereUuid('uuid')->middleware('permission:integrations.api_clients.manage');
+    Route::post('api-clients/{uuid}/revoke', [$C, 'revokeClient'])->whereUuid('uuid')->middleware('permission:integrations.api_clients.manage');
+    Route::get('api-clients/{uuid}/requests', [$C, 'clientRequests'])->whereUuid('uuid')->middleware($view);
+
+    Route::get('webhooks', [$C, 'webhooks'])->middleware($view);
+    Route::post('webhooks', [$C, 'createWebhook'])->middleware('permission:integrations.webhooks.manage');
+    Route::patch('webhooks/{uuid}', [$C, 'updateWebhook'])->whereUuid('uuid')->middleware('permission:integrations.webhooks.manage');
+    Route::delete('webhooks/{uuid}', [$C, 'deleteWebhook'])->whereUuid('uuid')->middleware('permission:integrations.webhooks.manage');
+    Route::post('webhooks/{uuid}/rotate-secret', [$C, 'rotateWebhookSecret'])->whereUuid('uuid')->middleware('permission:integrations.webhooks.manage');
+    Route::post('webhooks/{uuid}/test', [$C, 'testWebhook'])->whereUuid('uuid')->middleware('permission:integrations.webhooks.manage');
+    Route::get('webhooks/{uuid}/deliveries', [$C, 'deliveries'])->whereUuid('uuid')->middleware($view);
+    Route::post('webhook-deliveries/{uuid}/replay', [$C, 'replay'])->whereUuid('uuid')->middleware('permission:integrations.webhooks.manage');
+
+    Route::get('import-profiles', [$C, 'profiles'])->middleware($view);
+    Route::post('import-profiles', [$C, 'createProfile'])->middleware('permission:integrations.imports.manage');
+    Route::patch('import-profiles/{uuid}', [$C, 'updateProfile'])->whereUuid('uuid')->middleware('permission:integrations.imports.manage');
+    Route::post('import-profiles/{uuid}/runs', [$C, 'runProfile'])->whereUuid('uuid')->middleware(['permission:integrations.imports.manage', 'throttle:20,1']);
+    Route::get('import-runs', [$C, 'runs'])->middleware($view);
+    Route::get('import-runs/{uuid}/items', [$C, 'runItems'])->whereUuid('uuid')->middleware($view);
+    Route::post('import-runs/{uuid}/retry', [$C, 'retryRun'])->whereUuid('uuid')->middleware('permission:integrations.imports.manage');
+});

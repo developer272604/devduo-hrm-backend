@@ -21,6 +21,7 @@ class AttendancePurgeLocationData extends Command
     {
         foreach (Tenant::query()->pluck('id') as $tenantId) {
             $runner->run($tenantId, function () use ($tenantId) {
+                if (\App\Domain\Security\LegalHoldService::held('attendance')) { $this->line("Tenant $tenantId: legal hold active, purge skipped."); return; }
                 $days = max(1, (int) AttendanceSettings::get('location.retention_days', 90));
                 $cutoff = now('UTC')->subDays($days)->format('Y-m-d H:i:s');
                 $count = 0;
@@ -34,7 +35,7 @@ class AttendancePurgeLocationData extends Command
                         }
                     });
                 if ($count) {
-                    AuditLog::create(['user_id' => null, 'actor' => 'System', 'action' => 'location_data_purged', 'module' => 'attendance', 'resource' => 'attendance_events', 'ip_address' => null, 'context' => ['count' => $count, 'retention_days' => $days]]);
+                    \App\Domain\Audit\Audit::record('location_data_purged', 'attendance', 'attendance_events', ['count' => $count, 'retention_days' => $days]);
                 }
                 $this->line("Tenant $tenantId: purged $count punch(es).");
             });

@@ -57,21 +57,9 @@ final class AnalyticsController
     {
         $result = $this->service->query($r->user(), $r->all(), true, 'export');
 
-        return response()->streamDownload(function () use ($result) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['Metric', 'Group', 'Value', 'Unit', 'Suppressed', 'From', 'To', 'Refreshed at'], ',', '"', '');
-            foreach ($result['rows'] as $row) {
-                $label = $row['group'];
-                if (preg_match('/^[=+\-@\t\r\n]/u', $label)) {
-                    $label = "'".$label;
-                }
-                $value = is_array($row['value'] ?? null)
-                    ? 'gross='.$row['value']['gross'].'; net='.$row['value']['net'].'; gross_change_percent='.$row['value']['gross_change_percent'].'; net_change_percent='.$row['value']['net_change_percent']
-                    : ($row['value'] ?? '');
-                if (is_string($value) && preg_match('/^[=+\-@\t\r\n]/u', $value)) $value = "'".$value;
-                fputcsv($out, [$result['label'], $label, $value, $result['unit'], $row['suppressed'] ? 'yes' : 'no', $result['period']['from'], $result['period']['to'], $result['refreshed_at']], ',', '"', '');
-            } fclose($out);
-        }, 'workforce-report.csv', ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff']);
+        $csv = \App\Domain\Analytics\ReportCsv::render($result, false, \App\Domain\Analytics\ReportCsv::sensitive($r->all()));
+
+        return response()->streamDownload(fn () => print($csv['csv']), 'workforce-report.csv', ['Content-Type' => 'text/csv; charset=UTF-8', 'Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff']);
     }
 
     public function scenario(Request $r)

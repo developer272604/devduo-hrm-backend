@@ -9,6 +9,7 @@ Route::get('feedback/received', [C::class, 'received'])->middleware('permission:
 Route::get('feedback/given', [C::class, 'given'])->middleware('permission:performance.self');
 Route::get('employees/{uuid}/feedback', [C::class, 'feedbackAbout'])->middleware('permission:performance.self');
 Route::post('one-on-ones', [C::class, 'recordOneOnOne'])->middleware('permission:performance.self');
+Route::get('one-on-ones', [C::class, 'myOneOnOnes'])->middleware('permission:performance.self');
 Route::get('employees/{uuid}/one-on-ones', [C::class, 'oneOnOnes'])->middleware('permission:performance.self');
 
 Route::get('development-plans', [C::class, 'plans'])->middleware('permission:performance.self|performance.view');

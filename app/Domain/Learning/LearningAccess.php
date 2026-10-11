@@ -101,4 +101,21 @@ final class LearningAccess
     {
         return DB::table('employees')->where('tenant_id', app(TenantContext::class)->id)->whereNull('deleted_at')->whereNotIn('status', ['separated', 'inactive', 'archived', 'preboarding'])->pluck('id')->map(fn ($i) => (int) $i)->all();
     }
+    /** Bulk employee labels keyed by employee id: uuid, number, name. @return array<int,array{uuid:string,number:string,name:string}> */
+    public function people(iterable $ids): array
+    {
+        $ids = collect($ids)->unique()->values()->all();
+        if (! $ids) return [];
+
+        return DB::table('employees')->join('people', 'people.id', '=', 'employees.person_id')->where('employees.tenant_id', app(TenantContext::class)->id)->whereIn('employees.id', $ids)
+            ->get(['employees.id', 'employees.uuid', 'employees.employee_number', 'people.legal_first_name', 'people.legal_last_name'])
+            ->mapWithKeys(fn ($r) => [(int) $r->id => ['uuid' => $r->uuid, 'number' => $r->employee_number, 'name' => trim($r->legal_first_name.' '.$r->legal_last_name)]])->all();
+    }
+
+    /** First held permission of the list (for DataScope on endpoints guarded by any-of permissions). */
+    public function heldPermission(User $u, array $permissions): string
+    {
+        foreach ($permissions as $p) if ($u->allows($p)) return $p;
+        abort(403, 'You do not have access to this learning data.');
+    }
 }

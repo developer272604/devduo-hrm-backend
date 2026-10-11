@@ -13,7 +13,7 @@ use Illuminate\Support\ServiceProvider;
  */
 class ModulesServiceProvider extends ServiceProvider
 {
-    private const DIRECTORIES = ['Domain/People/Boot', 'Domain/Attendance/Boot', 'Domain/Leave/Boot', 'Domain/Payroll/Boot', 'Domain/Recruitment/Boot', 'Domain/Lifecycle/Boot', 'Domain/Performance/Boot', 'Domain/Operations/Boot'];
+    private const DIRECTORIES = ['Domain/People/Boot', 'Domain/Attendance/Boot', 'Domain/Leave/Boot', 'Domain/Payroll/Boot', 'Domain/Recruitment/Boot', 'Domain/Lifecycle/Boot', 'Domain/Performance/Boot', 'Domain/Learning/Boot', 'Domain/Operations/Boot', 'Domain/Intelligence/Boot'];
 
     public function register(): void
     {

@@ -25,7 +25,7 @@ final class RecruitmentHousekeeping
         // Files and letter snapshots of anonymized or retention-expired (non-hired) candidates are removed; purge is idempotent.
         \App\Domain\Recruitment\Models\Candidate::where(fn ($q) => $q->whereNotNull('anonymized_at')->orWhere('retention_until', '<', $today))->orderBy('id')->chunkById(100, function ($candidates) use (&$counts) {
             foreach ($candidates as $candidate) {
-                if (! ResumeService::retentionPurgeable($candidate)) {
+                if (! ResumeService::retentionPurgeable($candidate) || \App\Domain\Security\LegalHoldService::held('recruitment', 'candidate:'.$candidate->uuid)) {
                     continue;
                 }
                 $files = app(ResumeService::class)->purgeForCandidate($candidate);

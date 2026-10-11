@@ -127,13 +127,15 @@ final class LearningController
             return Enrolment::create(['course_id' => $course->id, 'session_id' => $session?->id, 'employee_id' => $employeeId, 'status' => $status,
                 'source' => 'self', 'requested_by' => $r->user()->id, 'waitlisted_at' => $full ? now() : null, 'course_version' => $lockedCourse->version, 'cost' => $lockedCourse->cost, 'currency' => $lockedCourse->currency]);
         });
+        if ($enrolment->status === 'pending_approval') app(\App\Domain\Learning\EnrolmentService::class)->requestApproval($enrolment);
         return response()->json(['uuid' => $enrolment->uuid, 'status' => $enrolment->status], 201);
     }
 
     public function skills(Request $r)
     {
         $this->skills->ensureUuids();
-        return Skill::where('active', true)->orderBy('name')->get()->map(fn ($s) => ['uuid' => $s->uuid, 'code' => $s->code, 'name' => $s->name, 'description' => $s->description]);
+        $all = $r->boolean('include_inactive') && $r->user()->allows('learning.skills.manage');
+        return Skill::when(! $all, fn ($q) => $q->where('active', true))->orderBy('name')->get()->map(fn ($s) => ['uuid' => $s->uuid, 'code' => $s->code, 'name' => $s->name, 'description' => $s->description, 'active' => (bool) $s->active, 'category' => $s->category]);
     }
 
     public function levels() { return $this->skills->levels()->map(fn ($l) => ['rank' => $l->rank, 'name' => $l->name, 'description' => $l->description]); }

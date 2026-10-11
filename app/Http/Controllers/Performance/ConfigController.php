@@ -146,6 +146,12 @@ final class ConfigController
                 if ($all) $out['completion'][$t] = ['total' => $all, 'submitted' => (clone $resp)->where('reviewer_type', $t)->where('status', 'submitted')->count()];
             }
             $out['late_responses'] = (clone $resp)->where('status', 'pending')->where('due_on', '<', $today)->count();
+            // Late work list: who is late and which role is late. Reviewer identities are never listed (peer anonymity).
+            $out['late_list'] = (clone $resp)->where('status', 'pending')->where('due_on', '<', $today)->orderBy('due_on')->limit(50)->get()->map(function ($x) use ($today) {
+                $rev = Review::find($x->review_id); $e = \App\Domain\People\Models\Employee::with('person')->find($rev->employee_id);
+
+                return ['review_uuid' => $rev->uuid, 'employee' => trim(($e->person->legal_first_name ?? '').' '.($e->person->legal_last_name ?? '')), 'reviewer_type' => $x->reviewer_type, 'due_on' => $x->due_on->toDateString(), 'days_late' => (int) abs($x->due_on->diffInDays(\Carbon\CarbonImmutable::parse($today)))];
+            })->all();
             $scores = (clone $reviews)->get(['final_score', 'computed_score'])->map(fn ($x) => $x->final_score ?? $x->computed_score)->filter(fn ($s) => $s !== null);
             if ($scores->count() < 3) $out['distribution'] = ['suppressed' => true, 'reason' => 'Fewer than 3 scored reviews in your scope; distribution is hidden to protect individuals.'];
             else {
