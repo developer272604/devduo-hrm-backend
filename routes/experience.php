@@ -1,0 +1,62 @@
+<?php
+
+use App\Http\Controllers\Experience\HelpdeskController as Helpdesk;
+use App\Http\Controllers\Experience\AnnouncementController as Announcements;
+use App\Http\Controllers\Experience\SurveyController as Surveys;
+use App\Http\Controllers\Experience\RecognitionController as Recognition;
+use App\Http\Controllers\Experience\CommunicationPreferenceController as CommunicationPreferences;
+use Illuminate\Support\Facades\Route;
+
+/* Phase 10 helpdesk core; included under authenticated tenant routes. */
+Route::prefix('v1/experience')->middleware('module:experience')->group(function () {
+    Route::get('service-categories', [Helpdesk::class, 'categories'])->middleware('permission:experience.self|experience.view|experience.ticket.manage');
+    Route::get('service-health', [Helpdesk::class, 'health'])->middleware('permission:experience.analytics.view');
+    Route::post('service-categories', [Helpdesk::class, 'createCategory'])->middleware('permission:experience.category.manage');
+    Route::get('knowledge', [Helpdesk::class, 'knowledgeIndex'])->middleware('permission:experience.self|experience.view|experience.ticket.manage|experience.knowledge.manage');
+    Route::post('knowledge', [Helpdesk::class, 'knowledgeCreate'])->middleware('permission:experience.knowledge.manage');
+    Route::get('knowledge/{uuid}', [Helpdesk::class, 'knowledgeShow'])->middleware('permission:experience.self|experience.view|experience.ticket.manage|experience.knowledge.manage');
+    Route::post('knowledge/{uuid}/publish', [Helpdesk::class, 'knowledgePublish'])->middleware('permission:experience.knowledge.manage');
+    Route::post('knowledge/{uuid}/feedback', [Helpdesk::class, 'knowledgeFeedback'])->middleware('permission:experience.self');
+    Route::get('knowledge/{uuid}/feedback-results', [Helpdesk::class, 'knowledgeFeedbackResults'])->middleware('permission:experience.analytics.view');
+    Route::get('announcements', [Announcements::class, 'index'])->middleware('permission:experience.self|experience.view|experience.ticket.manage|experience.announcement.manage');
+    Route::get('announcements/audience-options', [Announcements::class, 'audienceOptions'])->middleware('permission:experience.announcement.manage');
+    Route::post('announcements', [Announcements::class, 'create'])->middleware('permission:experience.announcement.manage');
+    Route::post('announcements/{uuid}/attachments', [Announcements::class, 'addAttachment'])->middleware('permission:experience.announcement.manage');
+    Route::get('announcements/{uuid}/attachments/{attachment}', [Announcements::class, 'attachment'])->middleware('permission:experience.self|experience.view|experience.ticket.manage|experience.announcement.manage');
+    Route::get('announcements/{uuid}/metrics', [Announcements::class, 'metrics'])->middleware('permission:experience.analytics.view');
+    Route::post('announcements/{uuid}/publish', [Announcements::class, 'publish'])->middleware('permission:experience.announcement.manage');
+    Route::post('announcements/{uuid}/read', [Announcements::class, 'read'])->middleware('permission:experience.self|experience.view|experience.ticket.manage|experience.announcement.manage');
+    Route::post('announcements/{uuid}/acknowledge', [Announcements::class, 'acknowledge'])->middleware('permission:experience.self|experience.view|experience.ticket.manage|experience.announcement.manage');
+    Route::put('announcements/{uuid}/rsvp', [Announcements::class, 'rsvp'])->middleware('permission:experience.self');
+    Route::get('surveys', [Surveys::class, 'index'])->middleware('permission:experience.self|experience.view|experience.ticket.manage|experience.survey.manage');
+    Route::get('surveys/audience-options', [Surveys::class, 'audienceOptions'])->middleware('permission:experience.survey.manage');
+    Route::get('survey-catalog/questions', [Surveys::class, 'bankQuestions'])->middleware('permission:experience.survey.manage');
+    Route::post('survey-catalog/questions', [Surveys::class, 'addBankQuestion'])->middleware('permission:experience.survey.manage');
+    Route::get('survey-catalog/scales', [Surveys::class, 'scales'])->middleware('permission:experience.survey.manage');
+    Route::post('survey-catalog/scales', [Surveys::class, 'addScale'])->middleware('permission:experience.survey.manage');
+    Route::post('surveys', [Surveys::class, 'create'])->middleware('permission:experience.survey.manage');
+    Route::post('surveys/{uuid}/publish', [Surveys::class, 'publish'])->middleware('permission:experience.survey.manage');
+    Route::post('surveys/{uuid}/responses', [Surveys::class, 'submit'])->middleware('permission:experience.self');
+    Route::get('communication-preferences', [CommunicationPreferences::class, 'show'])->middleware('permission:experience.self');
+    Route::put('communication-preferences', [CommunicationPreferences::class, 'update'])->middleware('permission:experience.self');
+    Route::get('surveys/{uuid}/results', [Surveys::class, 'results'])->middleware('permission:experience.survey.manage');
+    Route::get('surveys/{uuid}/export', [Surveys::class, 'export'])->middleware(['permission:experience.survey.manage', 'throttle:10,1']);
+    Route::get('surveys/{uuid}/identified-responses', [Surveys::class, 'identifiedResponses'])->middleware(['permission:experience.survey.identifiable.view', 'throttle:10,1']);
+    Route::get('recognitions', [Recognition::class, 'index'])->middleware('permission:experience.self|experience.recognition.manage');
+    Route::get('recognitions/recipients', [Recognition::class, 'recipients'])->middleware('permission:experience.self');
+    Route::post('recognitions', [Recognition::class, 'create'])->middleware('permission:experience.self');
+    Route::get('recognitions/preference', [Recognition::class, 'myPreference'])->middleware('permission:experience.self');
+    Route::put('recognitions/preference', [Recognition::class, 'preference'])->middleware('permission:experience.self');
+    Route::post('recognitions/{uuid}/moderate', [Recognition::class, 'moderate'])->middleware('permission:experience.recognition.manage');
+    Route::get('tickets', [Helpdesk::class, 'index'])->middleware('permission:experience.self|experience.view|experience.ticket.manage');
+    Route::get('tickets/assignees', [Helpdesk::class, 'assignees'])->middleware('permission:experience.ticket.manage');
+    Route::post('tickets', [Helpdesk::class, 'store'])->middleware('permission:experience.self');
+    Route::get('tickets/{uuid}', [Helpdesk::class, 'show'])->middleware('permission:experience.self|experience.view|experience.ticket.manage');
+    Route::post('tickets/{uuid}/comments', [Helpdesk::class, 'comment'])->middleware('permission:experience.self|experience.view|experience.ticket.manage');
+    Route::post('tickets/{uuid}/attachments', [Helpdesk::class, 'addAttachment'])->middleware('permission:experience.self|experience.view|experience.ticket.manage');
+    Route::get('tickets/{uuid}/attachments/{attachment}', [Helpdesk::class, 'attachment'])->middleware('permission:experience.self|experience.view|experience.ticket.manage');
+    Route::post('tickets/{uuid}/reopen', [Helpdesk::class, 'reopen'])->middleware('permission:experience.self');
+    Route::post('tickets/{uuid}/feedback', [Helpdesk::class, 'feedback'])->middleware('permission:experience.self');
+    Route::post('tickets/{uuid}/escalate', [Helpdesk::class, 'escalate'])->middleware('permission:experience.ticket.manage');
+    Route::patch('tickets/{uuid}', [Helpdesk::class, 'update'])->middleware('permission:experience.ticket.manage');
+});
