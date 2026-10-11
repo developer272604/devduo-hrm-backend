@@ -52,7 +52,7 @@ return new class extends Migration {
             $t->unsignedBigInteger('claim_id')->nullable(); $t->text('reason')->nullable(); $t->string('status', 15)->default('active');
             $t->foreignId('requested_by')->constrained('users')->restrictOnDelete(); $t->foreignId('approved_by')->nullable()->constrained('users')->restrictOnDelete();
             $t->timestamp('decided_at')->nullable(); $t->text('decision_reason')->nullable(); $t->timestamps();
-            $t->index(['tenant_id', 'base_currency', 'quote_currency', 'effective_on']);
+            $t->index(['tenant_id', 'base_currency', 'quote_currency', 'effective_on'], 'expense_fx_rates_lookup_idx');
         });
 
         Schema::table('expense_claims', function (Blueprint $t) {
