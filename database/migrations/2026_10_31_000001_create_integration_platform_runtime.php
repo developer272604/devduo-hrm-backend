@@ -40,7 +40,7 @@ return new class extends Migration
             $t->string('status', 16)->default('pending'); $t->unsignedInteger('attempts')->default(0); $t->unsignedInteger('replays')->default(0);
             $t->timestamp('next_at')->nullable(); $t->unsignedSmallInteger('last_status_code')->nullable(); $t->string('last_error', 300)->nullable();
             $t->timestamp('delivered_at')->nullable(); $t->timestamps();
-            $t->unique(['endpoint_id', 'idempotency_key']); $t->index(['tenant_id', 'status', 'next_at']);
+            $t->unique(['endpoint_id', 'idempotency_key'], 'int_webhook_delivery_endpoint_idem_unique'); $t->index(['tenant_id', 'status', 'next_at']);
         });
         Schema::create('integration_import_profiles', function (Blueprint $t) {
             $t->id(); $t->uuid('uuid')->unique(); $t->foreignId('tenant_id')->constrained()->restrictOnDelete();
