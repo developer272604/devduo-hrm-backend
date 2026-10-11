@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Recruitment\Models\PortalChallenge;
+use App\Domain\Recruitment\Models\Submission;
 use App\Domain\Recruitment\RecruitmentHousekeeping as Housekeeping;
 use App\Domain\Tenancy\TenantRunner;
 use App\Models\Tenant;
@@ -17,10 +19,12 @@ class RecruitmentHousekeeping extends Command
     {
         $failed = false;
         foreach (Tenant::query()->when($this->option('tenant'), fn ($query, $id) => $query->whereKey($id))->orderBy('id')->cursor() as $tenant) {
-            if (! in_array('recruitment', $tenant->settings['modules'] ?? [], true)) {
-                continue;
-            }
             try {
+                $runner->run($tenant->id, fn () => PortalChallenge::where('expires_at', '<=', now())->delete());
+                $runner->run($tenant->id, fn () => Submission::where('expires_at', '<=', now())->delete());
+                if (! in_array('recruitment', $tenant->settings['modules'] ?? [], true)) {
+                    continue;
+                }
                 $counts = $runner->run($tenant->id, fn () => app(Housekeeping::class)->run());
                 $this->line('tenant '.$tenant->id.': '.json_encode($counts));
             } catch (\Throwable $error) {

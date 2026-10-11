@@ -128,6 +128,7 @@ final class OfferDocumentService
     {
         $n = 0;
         $offers = Offer::whereIn('application_id', Application::where('candidate_id', $candidate->id)->select('id'))->select('id');
+        \App\Domain\Recruitment\Models\OfferRelease::whereIn('offer_id', clone $offers)->update(['content' => null]);
         OfferDocument::whereNull('purged_at')->whereIn('offer_id', $offers)->each(function ($d) use (&$n) {
             $d->update(['content' => null, 'compensation_snapshot' => null, 'purged_at' => now()]);
             $n++;

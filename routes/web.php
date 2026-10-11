@@ -15,6 +15,14 @@ Route::prefix('api')->group(function () {
     Route::prefix('device/v1')->middleware(['device', 'throttle:600,1'])->group(__DIR__.'/device.php');
     Route::prefix('public/v1')->group(__DIR__.'/integrations_public.php');
     Route::get('csrf', [AuthController::class, 'csrf']);
+    Route::post('v1/careers/{workspace}/portal/offers/{uuid}/respond', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'respondOffer'])->middleware('throttle:10,1,portal-offer-response');
+    Route::post('v1/careers/{workspace}/portal/applications/{uuid}/withdraw', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'withdraw'])->middleware('throttle:10,1,portal-action');
+    Route::post('v1/careers/{workspace}/portal/code', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'requestCode'])->middleware('throttle:5,1,portal-code');
+    Route::post('v1/careers/{workspace}/portal/verify', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'verify'])->middleware('throttle:10,1,portal-verify');
+    Route::get('v1/careers/{workspace}/portal', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'status'])->middleware('throttle:60,1,portal-status');
+    Route::post('v1/careers/{workspace}/portal/logout', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'logout']);
+    Route::get('v1/careers/{workspace}/jobs', [\App\Http\Controllers\Recruitment\CareersController::class, 'index'])->middleware('throttle:60,1,careers-list');
+    Route::post('v1/careers/{workspace}/jobs/{uuid}/apply', [\App\Http\Controllers\Recruitment\CareersController::class, 'apply'])->middleware('throttle:5,1,careers-apply');
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:30,1');
     Route::post('login/mfa', [AuthController::class, 'loginMfa'])->middleware('throttle:20,1');
     Route::post('forgot-password', [AuthController::class, 'forgot'])->middleware('throttle:5,1');

@@ -4,10 +4,14 @@ namespace App\Domain\Recruitment;
 
 use App\Domain\Audit\Audit;
 use App\Domain\Recruitment\Models\Application;
+use App\Domain\Recruitment\Models\Candidate;
+use App\Domain\Recruitment\Models\CandidateImport;
 use App\Domain\Recruitment\Models\Interview;
 use App\Domain\Recruitment\Models\Offer;
 use App\Domain\Recruitment\Models\Panelist;
 use App\Domain\Recruitment\Models\Posting;
+use App\Domain\Recruitment\Models\Submission;
+use App\Domain\Security\LegalHoldService;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Work\TaskService;
 use App\Models\User;
@@ -18,14 +22,15 @@ final class RecruitmentHousekeeping
 {
     public function run(): array
     {
+        Submission::where('expires_at', '<=', now())->delete();
         // Short-lived encrypted staging data is never retained past its review window.
-        \App\Domain\Recruitment\Models\CandidateImport::where('expires_at', '<', now())->delete();
+        CandidateImport::where('expires_at', '<', now())->delete();
         $counts = ['resumes_purged' => 0, 'offer_documents_purged' => 0, 'offers_expired' => 0, 'postings_closed' => 0, 'stage_reminders' => 0, 'feedback_reminders' => 0];
         $today = now('UTC')->toDateString();
         // Files and letter snapshots of anonymized or retention-expired (non-hired) candidates are removed; purge is idempotent.
-        \App\Domain\Recruitment\Models\Candidate::where(fn ($q) => $q->whereNotNull('anonymized_at')->orWhere('retention_until', '<', $today))->orderBy('id')->chunkById(100, function ($candidates) use (&$counts) {
+        Candidate::where(fn ($q) => $q->whereNotNull('anonymized_at')->orWhere('retention_until', '<', $today))->orderBy('id')->chunkById(100, function ($candidates) use (&$counts) {
             foreach ($candidates as $candidate) {
-                if (! ResumeService::retentionPurgeable($candidate) || \App\Domain\Security\LegalHoldService::held('recruitment', 'candidate:'.$candidate->uuid)) {
+                if (! ResumeService::retentionPurgeable($candidate) || LegalHoldService::held('recruitment', 'candidate:'.$candidate->uuid)) {
                     continue;
                 }
                 $files = app(ResumeService::class)->purgeForCandidate($candidate);

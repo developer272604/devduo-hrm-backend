@@ -21,6 +21,7 @@ final class OfferService
     {
         abort_unless($actor->allows('recruitment.offer.manage'), 403);
         return DB::transaction(function () use ($actor, $applicationUuid, $data) {
+            DB::table('tenants')->where('id', $actor->tenant_id)->lockForUpdate()->first();
             $app = app(HiringScope::class)->applications($actor, 'recruitment.offer.manage')->where('uuid', $applicationUuid)->lockForUpdate()->firstOrFail();
             abort_unless($app->status === 'active' && app(PipelineService::class)->stageKind($app->requisition, $app->stage) === 'offer', 409, 'Offers can be drafted only for active applications in the offer stage.');
             abort_if(Offer::where('application_id', $app->id)->where('status', 'accepted')->exists(), 409, 'An offer was already accepted for this application.');

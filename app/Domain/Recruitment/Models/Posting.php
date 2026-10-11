@@ -2,12 +2,22 @@
 
 namespace App\Domain\Recruitment\Models;
 
-use App\Domain\Tenancy\TenantRecord;
 use App\Domain\Tenancy\HasPublicId;
+use App\Domain\Tenancy\TenantRecord;
 
 class Posting extends TenantRecord
 {
     use HasPublicId;
+
     protected $table = 'recruitment_postings';
-    public function requisition() { return $this->belongsTo(Requisition::class); }
+
+    protected function casts(): array
+    {
+        return ['closes_on' => 'date', 'public_enabled' => 'boolean'];
+    }
+
+    public function requisition()
+    {
+        return $this->belongsTo(Requisition::class);
+    }
 }

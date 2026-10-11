@@ -1,12 +1,18 @@
 <?php
 
+use App\Http\Controllers\Recruitment\CandidateImportController;
+use App\Http\Controllers\Recruitment\CareersController;
 use App\Http\Controllers\Recruitment\RecruitmentController as Recruitment;
 use App\Http\Controllers\Recruitment\RecruitmentCoreController as Core;
 use Illuminate\Support\Facades\Route;
 
 /* Phase 6 core. Required from routes/recruitment.php inside the v1/recruitment prefix + module middleware group. */
-Route::post('imports/candidates', [\App\Http\Controllers\Recruitment\CandidateImportController::class, 'preview'])->middleware('permission:recruitment.manage');
-Route::post('imports/candidates/{uuid}/commit', [\App\Http\Controllers\Recruitment\CandidateImportController::class, 'commit'])->middleware('permission:recruitment.manage');
+Route::post('offers/{uuid}/candidate-release', [\App\Http\Controllers\Recruitment\OfferReleaseController::class, 'store'])->middleware('permission:recruitment.offer.approve');
+Route::put('postings/{uuid}/public', [CareersController::class, 'configure'])->middleware('permission:recruitment.manage');
+Route::get('submissions', [CareersController::class, 'submissions'])->middleware('permission:recruitment.manage');
+Route::post('submissions/{uuid}/review', [CareersController::class, 'review'])->middleware('permission:recruitment.manage');
+Route::post('imports/candidates', [CandidateImportController::class, 'preview'])->middleware('permission:recruitment.manage');
+Route::post('imports/candidates/{uuid}/commit', [CandidateImportController::class, 'commit'])->middleware('permission:recruitment.manage');
 Route::post('requisitions/{uuid}/close', [Core::class, 'closeRequisition'])->middleware('permission:recruitment.manage');
 Route::get('postings', [Core::class, 'postings'])->middleware('permission:recruitment.view');
 Route::post('postings', [Core::class, 'createPosting'])->middleware('permission:recruitment.manage');
