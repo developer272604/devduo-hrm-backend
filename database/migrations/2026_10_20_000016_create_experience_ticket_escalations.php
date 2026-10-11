@@ -15,7 +15,7 @@ return new class extends Migration
             $t->unsignedBigInteger('created_by')->nullable(); $t->text('reason'); $t->dateTime('notified_at')->nullable(); $t->timestamps();
             $t->foreign('ticket_id')->references('id')->on('experience_tickets')->cascadeOnDelete();
             $t->unique(['tenant_id', 'dedupe_key']);
-            $t->index(['tenant_id', 'ticket_id', 'created_at']);
+            $t->index(['tenant_id', 'ticket_id', 'created_at'], 'exp_ticket_esc_tenant_ticket_created_idx');
         });
     }
 
