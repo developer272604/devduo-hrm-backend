@@ -35,7 +35,7 @@ final class SurveyService
             'reminder_interval_days' => $survey->reminder_interval_days, 'max_reminders' => $survey->max_reminders,
             'submitted' => SurveyParticipant::where('survey_id', $survey->id)->where('user_id', $viewer->id)->where('submitted', true)->exists(),
             'questions' => $survey->questions->map(fn ($q) => ['uuid' => $q->uuid, 'prompt' => $q->prompt, 'kind' => $q->kind,
-                'scale' => range((int) $q->scale_minimum, (int) $q->scale_maximum), 'scale_labels' => $q->scale_labels ?? []])->values()];
+                'scale' => $q->kind === 'rating' ? range((int) $q->scale_minimum, (int) $q->scale_maximum) : null, 'scale_labels' => $q->scale_labels ?? []])->values()];
     }
 
     public function eligible(User $viewer, Survey $survey): bool
@@ -74,10 +74,11 @@ final class SurveyService
                 'reminder_interval_days' => $data['reminder_interval_days'] ?? null, 'max_reminders' => $data['max_reminders'] ?? 0, 'created_by' => $actor->id]);
             foreach ($data['questions'] as $i => $question) {
                 $bankQuestion = ! empty($question['bank_question_uuid']) ? $this->catalog->resolveQuestion($question['bank_question_uuid']) : null;
-                $scale = $this->catalog->resolveScale($question['scale_code'] ?? $data['scale_code'] ?? null);
+                $kind = $question['kind'] ?? 'rating';
+                $scale = $kind === 'rating' ? $this->catalog->resolveScale($question['scale_code'] ?? $data['scale_code'] ?? null) : null;
                 SurveyQuestion::create(['uuid' => (string) Str::uuid(), 'survey_id' => $survey->id, 'position' => $i + 1,
-                    'prompt' => $bankQuestion?->prompt ?? trim($question['prompt']), 'bank_question_id' => $bankQuestion?->id, 'kind' => 'rating',
-                    'scale_minimum' => $scale->minimum_value, 'scale_maximum' => $scale->maximum_value, 'scale_labels' => $scale->labels]);
+                    'prompt' => $bankQuestion?->prompt ?? trim($question['prompt']), 'bank_question_id' => $bankQuestion?->id, 'kind' => $kind,
+                    'scale_minimum' => $scale?->minimum_value ?? 1, 'scale_maximum' => $scale?->maximum_value ?? 1, 'scale_labels' => $scale?->labels ?? []]);
             }
             Audit::record('survey.created', 'experience', 'survey:'.$survey->uuid, ['question_count' => count($data['questions']), 'minimum_responses' => $survey->minimum_responses]);
             return $survey->load('questions');
@@ -107,6 +108,13 @@ final class SurveyService
         $provided = collect(array_keys($answers))->sort()->values()->all();
         if ($expected !== $provided) throw ValidationException::withMessages(['answers' => 'Submit one rating for every survey question.']);
         foreach ($questions as $question) {
+            if ($question->kind === 'text') {
+                if (! is_string($answers[$question->uuid]) || trim($answers[$question->uuid]) === '' || mb_strlen($answers[$question->uuid]) > 2000) {
+                    throw ValidationException::withMessages(['answers' => 'Text answers must be between 1 and 2000 characters.']);
+                }
+                continue;
+            }
+            if (! is_numeric($answers[$question->uuid])) throw ValidationException::withMessages(['answers' => 'Rating answers must be numeric.']);
             $answer = (int) $answers[$question->uuid];
             if ($answer < $question->scale_minimum || $answer > $question->scale_maximum) {
                 throw ValidationException::withMessages(['answers' => "Each rating must be between {$question->scale_minimum} and {$question->scale_maximum} for its question."]);
@@ -118,6 +126,7 @@ final class SurveyService
             if ($participant->submitted) throw ValidationException::withMessages(['survey' => 'You have already submitted a response.']);
             if (($survey->response_mode ?? 'anonymous') === 'anonymous') {
                 foreach ($questions as $question) {
+                    if ($question->kind !== 'rating') continue;
                     $bucket = SurveyAnswerCount::firstOrCreate(['survey_id' => $survey->id, 'question_id' => $question->id, 'answer' => (int) $answers[$question->uuid]], ['response_count' => 0]);
                     $bucket = SurveyAnswerCount::whereKey($bucket->id)->lockForUpdate()->firstOrFail();
                     $bucket->increment('response_count');
@@ -150,12 +159,15 @@ final class SurveyService
                 : SurveyIdentifiedResponse::where('survey_id', $survey->id)->pluck('encrypted_answers');
             foreach ($responses as $ciphertext) {
                 $answers = json_decode(Crypt::decryptString($ciphertext), true, 512, JSON_THROW_ON_ERROR);
-                foreach ($answers as $questionUuid => $value) $questionCounts[$questionUuid][$value] = ($questionCounts[$questionUuid][$value] ?? 0) + 1;
+                foreach ($answers as $questionUuid => $value) if (is_numeric($value)) $questionCounts[$questionUuid][$value] = ($questionCounts[$questionUuid][$value] ?? 0) + 1;
             }
         }
         $questions = $survey->questions->map(function ($question) use ($survey, $count, $questionCounts) {
+            if ($question->kind === 'text') {
+                return ['uuid' => $question->uuid, 'prompt' => $question->prompt, 'kind' => 'text', 'text_responses' => 'encrypted', 'distribution' => []];
+            }
             $counts = $questionCounts[$question->uuid] ?? [];
-            return ['uuid' => $question->uuid, 'prompt' => $question->prompt, 'scale_labels' => $question->scale_labels ?? [],
+            return ['uuid' => $question->uuid, 'prompt' => $question->prompt, 'kind' => 'rating', 'scale_labels' => $question->scale_labels ?? [],
                 'distribution' => collect(range((int) $question->scale_minimum, (int) $question->scale_maximum))->map(fn ($rating) => ['rating' => $rating, 'label' => ($question->scale_labels ?? [])[(string) $rating] ?? null, 'count' => (int) ($counts[$rating] ?? 0) >= $survey->minimum_responses ? (int) $counts[$rating] : null,
                     'suppressed' => (int) ($counts[$rating] ?? 0) < $survey->minimum_responses])->all()];
         })->values()->all();
@@ -180,7 +192,7 @@ final class SurveyService
             $answers = json_decode(Crypt::decryptString($record->encrypted_answers), true, 512, JSON_THROW_ON_ERROR);
             return ['employee' => $user?->name, 'answers' => collect($answers)->map(function ($value, $uuid) use ($questions) {
                 $question = $questions->get($uuid);
-                return ['prompt' => $question?->prompt, 'value' => (int) $value, 'label' => $question?->scale_labels[(string) $value] ?? null];
+                return ['prompt' => $question?->prompt, 'kind' => $question?->kind, 'value' => $question?->kind === 'text' ? $value : (int) $value, 'label' => $question?->scale_labels[(string) $value] ?? null];
             })->values()->all()];
         })->values()->all()];
     }

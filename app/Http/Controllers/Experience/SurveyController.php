@@ -56,11 +56,13 @@ final class SurveyController
             'eligibility.legal_entity_ids' => 'sometimes|array|max:50', 'eligibility.legal_entity_ids.*' => 'required|integer|min:1|distinct',
             'eligibility.location_ids' => 'sometimes|array|max:50', 'eligibility.location_ids.*' => 'required|integer|min:1|distinct',
             'eligibility.designation_ids' => 'sometimes|array|max:50', 'eligibility.designation_ids.*' => 'required|integer|min:1|distinct',
-            'questions' => 'required|array|min:1|max:10', 'questions.*.prompt' => 'nullable|string|max:300', 'questions.*.bank_question_uuid' => 'nullable|uuid',
+            'questions' => 'required|array|min:1|max:10', 'questions.*.kind' => ['sometimes', Rule::in(['rating', 'text'])], 'questions.*.prompt' => 'nullable|string|max:300', 'questions.*.bank_question_uuid' => 'nullable|uuid',
             'questions.*.scale_code' => 'nullable|string|max:30']);
         foreach ($d['questions'] as $index => $question) if (empty($question['prompt']) && empty($question['bank_question_uuid'])) {
             throw \Illuminate\Validation\ValidationException::withMessages(["questions.$index" => 'Choose a saved question or provide a prompt.']);
         }
+        $hasText = collect($d['questions'])->contains(fn ($question) => ($question['kind'] ?? 'rating') === 'text');
+        if ($hasText && ($d['response_mode'] ?? 'anonymous') === 'anonymous') throw \Illuminate\Validation\ValidationException::withMessages(['questions' => 'Free-text questions require confidential or identified response mode.']);
         if (($d['response_mode'] ?? 'anonymous') !== 'anonymous' && empty($d['requires_consent'])) {
             throw \Illuminate\Validation\ValidationException::withMessages(['requires_consent' => 'Confidential and identified surveys require explicit participant consent.']);
         }
@@ -82,7 +84,7 @@ final class SurveyController
     public function submit(Request $r, string $uuid)
     {
         $survey = $this->surveys->visible($r->user())->where('uuid', $uuid)->firstOrFail();
-        $d = $r->validate(['answers' => 'required|array|min:1|max:10', 'answers.*' => 'required|integer|min:1|max:10', 'consent' => 'sometimes|boolean']);
+        $d = $r->validate(['answers' => 'required|array|min:1|max:10', 'answers.*' => 'required', 'consent' => 'sometimes|boolean']);
         $this->surveys->submit($survey, $r->user(), $d['answers'], $d['consent'] ?? false);
         return response()->json(['submitted' => true]);
     }

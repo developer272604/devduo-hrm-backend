@@ -147,6 +147,35 @@ class SurveysTest extends PerformanceTestCase
         $this->assertSame(5, \DB::table('experience_survey_identified_responses')->where('survey_id', $surveyId)->count());
     }
 
+    public function test_free_text_questions_require_non_anonymous_mode_and_are_encrypted(): void
+    {
+        $this->postJson('/api/v1/experience/surveys', ['title' => 'Anonymous text blocked', 'retention_until' => now()->addMonths(6)->toDateString(),
+            'questions' => [['kind' => 'text', 'prompt' => 'What should we improve?']]])->assertUnprocessable()->assertJsonValidationErrors(['questions']);
+        $survey = $this->createSurvey(['response_mode' => 'identified', 'requires_consent' => true, 'questions' => [
+            ['prompt' => 'How supported do you feel?'], ['kind' => 'text', 'prompt' => 'What support would help?'],
+        ]]);
+        $this->assertSame('text', $survey['questions'][1]['kind']);
+        $this->assertNull($survey['questions'][1]['scale']);
+        $this->postJson('/api/v1/experience/surveys/'.$survey['uuid'].'/publish')->assertOk();
+        foreach ([$this->emp1, $this->emp2, $this->emp3, $this->mgr, $this->outsider] as $i => $employee) {
+            $this->actAs($employee);
+            $this->postJson('/api/v1/experience/surveys/'.$survey['uuid'].'/responses', ['consent' => true, 'answers' => [
+                $survey['questions'][0]['uuid'] => 4,
+                $survey['questions'][1]['uuid'] => 'More manager coaching '.($i + 1),
+            ]])->assertOk();
+        }
+        $surveyId = \DB::table('experience_surveys')->where('uuid', $survey['uuid'])->value('id');
+        $ciphertext = \DB::table('experience_survey_identified_responses')->where('survey_id', $surveyId)->value('encrypted_answers');
+        $this->assertStringNotContainsString('More manager coaching', $ciphertext);
+
+        $this->signIn($this->admin);
+        $this->getJson('/api/v1/experience/surveys/'.$survey['uuid'].'/results')->assertOk()
+            ->assertJsonPath('questions.0.kind', 'rating')->assertJsonPath('questions.0.distribution.3.count', 5)
+            ->assertJsonPath('questions.1.kind', 'text')->assertJsonPath('questions.1.text_responses', 'encrypted');
+        $this->getJson('/api/v1/experience/surveys/'.$survey['uuid'].'/identified-responses')->assertOk()
+            ->assertJsonPath('responses.0.answers.1.kind', 'text')->assertJsonPath('responses.0.answers.1.value', 'More manager coaching 1');
+    }
+
     public function test_aggregate_export_sanitizes_spreadsheet_formulas_and_disables_caching(): void
     {
         $survey = $this->createSurvey(['questions' => [['prompt' => ' =HYPERLINK("https://invalid.test")']]]);
