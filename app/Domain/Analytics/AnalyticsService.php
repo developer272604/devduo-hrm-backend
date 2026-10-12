@@ -338,7 +338,7 @@ final class AnalyticsService
                 }
                 $hide = ($cohort < self::COHORT) || $smallEvent;
                 $suppressed = $suppressed || $hide;
-                $value = $denominator === null ? $numerator : ($denominator > 0 ? round($numerator / $denominator * (in_array($d['metric'], ['attrition', 'absence', 'retention_cohort', 'training_compliance', 'offer_accept_rate'], true) ? 100 : 1), 2) : null);
+                $value = $denominator === null ? $numerator : ($denominator > 0 ? round($numerator / $denominator * (in_array($d['metric'], ['attrition', 'absence', 'retention_cohort', 'training_compliance', 'offer_accept_rate', 'ticket_sla'], true) ? 100 : 1), 2) : null);
                 if (! in_array($d['metric'], self::CUSTOM_ROWS, true)) {
                     $rows[] = ['group' => $group === 'total' ? 'Total' : ($labels[$group] ?? 'Unassigned'), 'value' => $hide ? null : $value,
                         'numerator' => $hide ? null : $numerator, 'denominator' => $hide ? null : $denominator, 'suppressed' => $hide,

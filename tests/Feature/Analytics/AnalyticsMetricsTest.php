@@ -139,6 +139,58 @@ class AnalyticsMetricsTest extends PerformanceTestCase
         $this->assertStringContainsString('Row limit', $failed['error']);
     }
 
+    public function test_recent_source_metrics_report_unsuppressed_totals_and_privacy_guards(): void
+    {
+        $this->seedLeaveConsumption();
+        $this->seedRecruitmentPipeline();
+        $this->seedHelpdeskTickets();
+        $this->seedPayroll();
+        $this->cycle();
+        $this->context($this->admin->tenant_id);
+        DB::table('performance_reviews')->update(['status' => 'finalized', 'final_rating' => 'Meets', 'finalized_at' => '2026-09-15 09:00:00']);
+
+        $leave = $this->q(['metric' => 'leave_utilization', 'from' => '2026-09-01', 'to' => '2026-09-30'])->assertOk()->json('rows.0');
+        $this->assertSame(7.5, $leave['value']);
+        $this->assertFalse($leave['suppressed']);
+
+        $pipeline = $this->q(['metric' => 'recruitment_pipeline', 'from' => '2026-09-01', 'to' => '2026-09-30'])->assertOk()->json();
+        $this->assertSame('Tenant aggregate authorized by the source report permission; no candidate or ticket identity is returned.', $pipeline['scope']);
+        $this->assertSame([['group' => 'screening', 'value' => 5, 'numerator' => 5, 'denominator' => null, 'suppressed' => false]], $pipeline['rows']);
+
+        $performance = $this->q(['metric' => 'performance_status', 'from' => '2026-09-01', 'to' => '2026-09-30'])->assertOk()->json('rows.0');
+        $this->assertGreaterThanOrEqual(5, $performance['value']);
+        $this->assertFalse($performance['suppressed']);
+
+        $sla = $this->q(['metric' => 'ticket_sla', 'from' => '2026-09-01', 'to' => '2026-09-30'])->assertOk()->json('rows.0');
+        $this->assertSame(100, $sla['value']);
+        $this->assertSame(5, $sla['denominator']);
+
+        $payroll = $this->q(['metric' => 'payroll_totals', 'from' => '2026-09-01', 'to' => '2026-09-30'])->assertOk()->json('rows.0');
+        $this->assertSame('INR', $payroll['group']);
+        $this->assertSame(0, bccomp((string) $payroll['value']['gross'], '5500.00', 2));
+        $this->assertSame(0, bccomp((string) $payroll['value']['net'], '4500.00', 2));
+        $this->assertSame(['from' => '2026-08-02', 'to' => '2026-08-31'], $payroll['value']['previous_period']);
+        $this->assertNotNull($payroll['value']['gross_change_percent']);
+    }
+
+    public function test_recent_source_metrics_withhold_small_source_events(): void
+    {
+        $this->seedRecruitmentPipeline();
+        $this->seedHelpdeskTickets();
+
+        DB::table('recruitment_applications')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'candidate_id' => 99, 'requisition_id' => 1, 'stage' => 'offer', 'status' => 'active', 'source' => 'x',
+            'stage_entered_at' => '2026-09-12 06:00:00', 'created_at' => now(), 'updated_at' => now()]);
+        foreach ($this->q(['metric' => 'recruitment_pipeline', 'from' => '2026-09-01', 'to' => '2026-09-30'])->assertOk()->json('rows') as $row) {
+            $this->assertNull($row['value']);
+            $this->assertTrue($row['suppressed']);
+        }
+
+        DB::table('experience_tickets')->where('employee_id', $this->emp1->id)->update(['first_response_at' => '2026-09-03 13:00:00']);
+        $this->q(['metric' => 'ticket_sla', 'from' => '2026-09-01', 'to' => '2026-09-30'])->assertOk()
+            ->assertJsonPath('rows.0.value', null)
+            ->assertJsonPath('rows.0.suppressed', true);
+    }
+
     private function seedPayroll(): void
     {
         $this->deferFks();
@@ -151,6 +203,42 @@ class AnalyticsMetricsTest extends PerformanceTestCase
                 DB::table('payroll_calculation_results')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenant, 'run_id' => $run, 'run_employee_id' => ++$re, 'employee_id' => $e->id, 'version' => 1, 'currency' => 'INR',
                     'gross' => $gross, 'net' => '900.00', 'engine_version' => 't', 'checksum' => 'x'.$i, 'created_at' => now(), 'updated_at' => now()]);
             }
+        }
+    }
+
+    private function seedLeaveConsumption(): void
+    {
+        $this->deferFks();
+        $tenant = $this->admin->tenant_id;
+        $type = DB::table('leave_types')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenant, 'name' => 'Sick Leave', 'code' => 'SL', 'category' => 'paid', 'unit' => 'day', 'tracks_balance' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $n = 0;
+        foreach ($this->staff() as $employee) {
+            $account = DB::table('leave_accounts')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenant, 'employee_id' => $employee->id, 'leave_type_id' => $type, 'period_start' => '2026-01-01', 'period_end' => '2026-12-31', 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('leave_ledger_entries')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenant, 'account_id' => $account, 'employee_id' => $employee->id, 'leave_type_id' => $type, 'entry_type' => 'consumption',
+                'bucket' => 'accrued', 'units' => '-1.5000', 'effective_date' => '2026-09-10', 'idempotency_key' => 'consume'.$n++, 'posted_at' => now()]);
+            DB::table('leave_ledger_entries')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenant, 'account_id' => $account, 'employee_id' => $employee->id, 'leave_type_id' => $type, 'entry_type' => 'reservation',
+                'bucket' => 'accrued', 'units' => '-5.0000', 'effective_date' => '2026-09-11', 'idempotency_key' => 'reserve'.$n++, 'posted_at' => now()]);
+        }
+    }
+
+    private function seedRecruitmentPipeline(): void
+    {
+        $this->deferFks();
+        for ($i = 1; $i <= 5; $i++) {
+            DB::table('recruitment_applications')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'candidate_id' => $i, 'requisition_id' => 1, 'stage' => 'screening', 'status' => 'active', 'source' => 'x',
+                'stage_entered_at' => '2026-09-10 06:00:00', 'created_at' => now(), 'updated_at' => now()]);
+        }
+    }
+
+    private function seedHelpdeskTickets(): void
+    {
+        $tenant = $this->admin->tenant_id;
+        $category = DB::table('experience_service_categories')->where('tenant_id', $tenant)->value('id')
+            ?: DB::table('experience_service_categories')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenant, 'code' => 'ANALYTICS', 'name' => 'Analytics', 'active' => true, 'target_hours' => 24, 'created_at' => now(), 'updated_at' => now()]);
+        foreach ($this->staff() as $i => $employee) {
+            DB::table('experience_tickets')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $tenant, 'employee_id' => $employee->id, 'category_id' => $category, 'requester_id' => $employee->user_id ?? $this->admin->id,
+                'assignee_id' => $this->admin->id, 'subject' => 'Policy question '.$i, 'description' => 'Please help.', 'priority' => 'normal', 'status' => 'resolved', 'sla_due_at' => '2026-09-03 12:00:00',
+                'first_response_at' => '2026-09-03 10:00:00', 'resolved_at' => '2026-09-04 10:00:00', 'created_at' => '2026-09-02 10:00:00', 'updated_at' => now()]);
         }
     }
 
