@@ -7,6 +7,7 @@ use App\Domain\Analytics\Models\Report;
 use App\Domain\Analytics\Models\Schedule;
 use App\Domain\Audit\Audit;
 use App\Domain\Notifications\NotificationService;
+use App\Domain\Security\LegalHoldService;
 use App\Domain\Tenancy\TenantClock;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\User;
@@ -185,6 +186,9 @@ final class ReportDelivery
     /** Removes expired files; the delivery row (attempt history) is kept. */
     public function purgeExpired(): int
     {
+        if (LegalHoldService::held('analytics')) {
+            return 0;
+        }
         $n = 0;
         foreach (Delivery::query()->whereNotNull('path')->where('expires_at', '<', now())->get() as $d) {
             Storage::disk('local')->delete($d->path);

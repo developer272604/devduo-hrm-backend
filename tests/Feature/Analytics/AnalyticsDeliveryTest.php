@@ -131,6 +131,32 @@ class AnalyticsDeliveryTest extends PerformanceTestCase
         $this->assertNull(DB::table('analytics_deliveries')->where('uuid', $delivery['uuid'])->value('path')); // file purged after expiry
     }
 
+    public function test_analytics_legal_hold_blocks_expired_delivery_and_export_file_purge(): void
+    {
+        $this->schedule(['recipient_ids' => [$this->admin->id]]);
+        $this->runDelivery('2026-10-08 03:00:00');
+        $delivery = DB::table('analytics_deliveries')->where('channel', 'in_app')->first();
+        $job = $this->postJson(self::A.'exports', $this->spec())->assertStatus(202)->json();
+        $deliveryPath = $delivery->path;
+        $exportPath = DB::table('analytics_export_jobs')->where('uuid', $job['uuid'])->value('path');
+        DB::table('legal_holds')->insert(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'name' => 'Analytics evidence hold',
+            'reason' => 'Preserve analytics reports for review.', 'module' => 'analytics', 'subject_ref' => null, 'placed_by' => $this->admin->id, 'placed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->travel(8)->days();
+        Artisan::call('analytics:deliver-reports');
+        $this->context($this->admin->tenant_id);
+        $this->assertSame($deliveryPath, DB::table('analytics_deliveries')->where('uuid', $delivery->uuid)->value('path'));
+        $this->assertSame('completed', DB::table('analytics_export_jobs')->where('uuid', $job['uuid'])->value('status'));
+        $this->assertSame($exportPath, DB::table('analytics_export_jobs')->where('uuid', $job['uuid'])->value('path'));
+
+        DB::table('legal_holds')->where('module', 'analytics')->update(['released_at' => now(), 'released_by' => $this->admin->id, 'release_reason' => 'Review complete.']);
+        Artisan::call('analytics:deliver-reports');
+        $this->context($this->admin->tenant_id);
+        $this->assertNull(DB::table('analytics_deliveries')->where('uuid', $delivery->uuid)->value('path'));
+        $this->assertSame('expired', DB::table('analytics_export_jobs')->where('uuid', $job['uuid'])->value('status'));
+        $this->assertNull(DB::table('analytics_export_jobs')->where('uuid', $job['uuid'])->value('path'));
+    }
+
     public function test_schedules_are_owner_scoped_and_need_the_manage_permission(): void
     {
         $s = $this->schedule();

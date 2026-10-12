@@ -4,6 +4,7 @@ namespace App\Domain\Analytics;
 
 use App\Domain\Analytics\Models\ExportJob;
 use App\Domain\Audit\Audit;
+use App\Domain\Security\LegalHoldService;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -63,6 +64,9 @@ final class ExportJobService
 
     public function purgeExpired(): int
     {
+        if (LegalHoldService::held('analytics')) {
+            return 0;
+        }
         $n = 0;
         foreach (ExportJob::query()->where('status', 'completed')->where('expires_at', '<', now())->get() as $job) {
             if ($job->path) {

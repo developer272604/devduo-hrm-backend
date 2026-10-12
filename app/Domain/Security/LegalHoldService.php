@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 final class LegalHoldService implements LegalHoldChecker
 {
-    public const MODULES = ['people', 'attendance', 'leave', 'payroll', 'recruitment', 'lifecycle', 'performance', 'learning', 'experience', 'assets', 'expenses', 'travel', 'workflows', 'security'];
+    public const MODULES = ['people', 'attendance', 'leave', 'payroll', 'recruitment', 'lifecycle', 'performance', 'learning', 'experience', 'assets', 'expenses', 'travel', 'workflows', 'analytics', 'security'];
 
     /** Static convenience for purge jobs: fails closed (treated as held) if the check itself breaks. */
     public static function held(string $module, ?string $subjectRef = null): bool
