@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 /** Versioned checklist templates. A published version is immutable: change it by creating (and publishing) the next version. */
 final class TemplateService
 {
-    public const KINDS = ['onboarding', 'offboarding', 'transfer', 'promotion', 'absence_return'];
+    public const KINDS = ['onboarding', 'offboarding', 'transfer', 'promotion', 'absence_return', 'contract_renewal'];
 
     public const OWNERS = ['manager', 'hr', 'it', 'finance', 'employee', 'user'];
 

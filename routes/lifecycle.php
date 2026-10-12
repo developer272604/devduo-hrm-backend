@@ -1,12 +1,17 @@
 <?php
 
 use App\Http\Controllers\Lifecycle\LifecycleController as L;
+use App\Http\Controllers\Lifecycle\ContractRenewalController as C;
 use App\Http\Controllers\Lifecycle\ResignationController as R;
 use App\Http\Controllers\Lifecycle\ReturnController as W;
 use Illuminate\Support\Facades\Route;
 
 /* Phase 7 core. Contract: docs/api/lifecycle-onboarding.md. Required from routes/web.php inside the authenticated tenant group. */
 Route::prefix('v1/lifecycle')->middleware('module:lifecycle')->group(function () {
+    Route::get('contract-renewals/employees', [C::class, 'employees'])->middleware('permission:people.manage');
+    Route::get('contract-renewals', [C::class, 'index'])->middleware('permission:people.manage');
+    Route::post('contract-renewals', [C::class, 'store'])->middleware('permission:people.manage');
+    Route::post('contract-renewals/{uuid}/decision', [C::class, 'decide'])->middleware('permission:people.manage');
     Route::get('returns/employees', [W::class, 'employees'])->middleware('permission:people.manage');
     Route::get('returns', [W::class, 'index'])->middleware('permission:people.manage');
     Route::post('returns', [W::class, 'store'])->middleware('permission:people.manage');
