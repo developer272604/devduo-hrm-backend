@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers\Performance;
 
-use App\Domain\Performance\{CalibrationService, PerformanceAccess, ReviewService};
-use App\Domain\Performance\Models\{CalibrationChange, Cycle, Goal, Response, Review};
+use App\Domain\Performance\{CalibrationService, PerformanceAccess, ReviewAppealService, ReviewService};
+use App\Domain\Performance\Models\{CalibrationChange, Cycle, Goal, Response, Review, ReviewAppeal};
 use App\Domain\Performance\Support\Num;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 final class ReviewController
 {
-    public function __construct(private ReviewService $reviews, private CalibrationService $calibration, private PerformanceAccess $access) {}
+    public function __construct(private ReviewService $reviews, private CalibrationService $calibration, private ReviewAppealService $appeals, private PerformanceAccess $access) {}
 
     private function review(string $uuid): Review
     {
@@ -73,6 +73,29 @@ final class ReviewController
         $rev = $this->reviews->acknowledge($r->user(), $this->review($uuid), $d['comment'] ?? null);
 
         return ['uuid' => $rev->uuid, 'status' => $rev->status, 'acknowledged_at' => $rev->acknowledged_at?->toIso8601String()];
+    }
+
+    public function appeal(Request $r, string $uuid)
+    {
+        $d = $r->validate(['reason' => 'required|string|max:4000']);
+        $appeal = $this->appeals->request($r->user(), $this->review($uuid), $d['reason']);
+
+        return response()->json($this->appeals->present($r->user(), $appeal), 201);
+    }
+
+    public function appeals(Request $r)
+    {
+        $d = $r->validate(['status' => ['nullable', Rule::in(['pending', 'approved', 'rejected'])], 'limit' => 'nullable|integer|min:1|max:100']);
+
+        return ['data' => $this->appeals->list($r->user(), $d)];
+    }
+
+    public function decideAppeal(Request $r, string $uuid)
+    {
+        $d = $r->validate(['decision' => ['required', Rule::in(['approve', 'reject'])], 'note' => 'required|string|max:1000']);
+        $appeal = $this->appeals->decide($r->user(), ReviewAppeal::where('uuid', $uuid)->firstOrFail(), $d['decision'], $d['note']);
+
+        return $this->appeals->present($r->user(), $appeal);
     }
 
     // ---- calibration -----------------------------------------------------------------------------------------------------------

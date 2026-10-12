@@ -3,7 +3,7 @@
 namespace Tests\Feature\Performance;
 
 use App\Domain\Performance\Contracts\PerformanceOutcomeProvider;
-use App\Domain\Performance\Models\{Item, Response, Review};
+use App\Domain\Performance\Models\{Item, Response, Review, ReviewAppeal};
 use App\Models\AuditLog;
 
 class ReviewCycleTest extends PerformanceTestCase
@@ -87,6 +87,19 @@ class ReviewCycleTest extends PerformanceTestCase
         $mine = $this->getJson($this->p("reviews/$rev"))->assertOk()->json();
         $this->assertSame('Exceeds', $mine['result']['final_rating']);
         $this->assertArrayNotHasKey('trace', $mine);
+        $appeal = $this->postJson($this->p("reviews/$rev/appeals"), ['reason' => 'I want HR to review the calibration note and final rating context.'])->assertCreated()
+            ->assertJsonPath('status', 'pending')->assertJsonPath('requested_by_me', true)->json('uuid');
+        $this->postJson($this->p("reviews/$rev/appeals"), ['reason' => 'Second appeal should not be accepted while the first is pending.'])->assertStatus(422);
+        $this->postJson($this->p("review-appeals/$appeal/decision"), ['decision' => 'approve', 'note' => 'I cannot decide my own appeal.'])->assertForbidden();
+
+        $this->signIn($this->admin)->getJson($this->p('review-appeals?status=pending'))->assertOk()->assertJsonPath('data.0.uuid', $appeal);
+        $this->postJson($this->p("review-appeals/$appeal/decision"), ['decision' => 'approve', 'note' => 'Appeal accepted for HR follow-up record.'])->assertOk()
+            ->assertJsonPath('status', 'approved')->assertJsonPath('can_decide', false);
+        $this->context($this->admin->tenant_id);
+        $storedAppeal = ReviewAppeal::where('uuid', $appeal)->firstOrFail();
+        $this->assertSame('approved', $storedAppeal->status);
+        $this->assertStringNotContainsString('calibration note', \DB::table('performance_review_appeals')->where('uuid', $appeal)->value('reason'));
+        $this->actAs($this->emp1);
         $this->postJson($this->p("reviews/$rev/acknowledge"), ['comment' => 'Thanks'])->assertOk()->assertJsonPath('status', 'acknowledged');
         $this->postJson($this->p("reviews/$rev/acknowledge"))->assertStatus(422);
 

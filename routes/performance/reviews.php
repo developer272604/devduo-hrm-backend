@@ -9,7 +9,11 @@ Route::get('reviews/{uuid}', [Reviews::class, 'show'])->middleware('permission:p
 Route::post('reviews/{uuid}/peers', [Reviews::class, 'nominatePeers'])->middleware('permission:performance.self|performance.reviews.manage');
 Route::post('reviews/{uuid}/manager', [Reviews::class, 'reassignManager'])->middleware('permission:performance.cycles.manage');
 Route::post('reviews/{uuid}/acknowledge', [Reviews::class, 'acknowledge'])->middleware('permission:performance.self');
+Route::post('reviews/{uuid}/appeals', [Reviews::class, 'appeal'])->middleware('permission:performance.self');
 Route::post('review-responses/{uuid}/submit', [Reviews::class, 'submit'])->middleware('permission:performance.self');
+
+Route::get('review-appeals', [Reviews::class, 'appeals'])->middleware('permission:performance.reviews.manage|performance.calibrate.approve');
+Route::post('review-appeals/{uuid}/decision', [Reviews::class, 'decideAppeal'])->middleware('permission:performance.reviews.manage|performance.calibrate.approve');
 
 Route::post('cycles/{uuid}/calibration/start', [Reviews::class, 'startCalibration'])->middleware('permission:performance.calibrate');
 Route::get('cycles/{uuid}/calibration', [Reviews::class, 'workspace'])->middleware('permission:performance.calibrate|performance.calibrate.approve');
