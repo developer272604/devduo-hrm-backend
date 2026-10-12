@@ -1,0 +1,1907 @@
+# HRM MASTER SPECIFICATION
+
+## PHASE 6 — RECRUITMENT, ATS & HIRING
+
+Continue from completed Phases 1–5.
+
+Build a production-grade Recruitment and Applicant Tracking System.
+
+The ATS must support:
+
+Multi-Country
+Multi-Tenant SaaS
+Multiple Legal Entities
+Multiple Locations
+High Hiring Volume
+Enterprise Permissions
+Structured Hiring
+Recruiter Operations
+Hiring Manager Collaboration
+Candidate Experience
+Privacy/Retention
+Automation
+Analytics
+Future AI Assistance
+
+Do NOT start Performance or Learning.
+
+==================================================
+1. RECRUITMENT DOMAIN
+==================================================
+
+Core concepts:
+
+Workforce Requisition
+Job Requisition
+Position
+Job
+Job Posting
+Career Site
+Candidate
+Candidate Identity
+Application
+Source
+Pipeline
+Stage
+Stage Transition
+Recruiter
+Hiring Team
+Screening
+Assessment
+Interview
+Interview Panel
+Interview Scorecard
+Feedback
+Offer
+Offer Approval
+Offer Letter
+Candidate Document
+Background Check Reference
+Talent Pool
+Referral
+Agency
+Hiring Decision
+Pre-Joiner
+Hiring Conversion
+
+==================================================
+2. POSITION VS JOB VS REQUISITION
+==================================================
+
+Keep concepts distinct.
+
+Job:
+Reusable role definition.
+
+Position:
+Actual organizational seat/headcount.
+
+Requisition:
+Authorization to hire.
+
+Posting:
+External/internal advertisement.
+
+Application:
+Candidate applying to a posting/job.
+
+Do not collapse all concepts into one jobs table.
+
+==================================================
+3. WORKFORCE REQUISITION
+==================================================
+
+Support requests for:
+
+New Headcount
+Replacement
+Backfill
+Temporary Role
+Contract Role
+Internship
+
+Fields:
+
+Requested By
+Department
+Position
+Location
+Legal Entity
+Hiring Manager
+Number of Openings
+Employment Type
+Target Joining Date
+Reason
+Budget Reference
+Priority
+
+==================================================
+4. REQUISITION APPROVAL
+==================================================
+
+Use centralized approval architecture.
+
+Possible chain:
+
+Manager
+Department Head
+HR
+Finance
+Leadership
+
+Conditional rules may depend on:
+
+Headcount
+Grade
+Budget
+Country
+Replacement/New Position
+
+==================================================
+5. HEADCOUNT FOUNDATION
+==================================================
+
+Track:
+
+Approved Positions
+Filled Positions
+Open Positions
+Frozen Positions
+
+Prepare for future workforce planning.
+
+==================================================
+6. JOB LIBRARY
+==================================================
+
+Create reusable job architecture.
+
+Fields:
+
+Title
+Code
+Department
+Job Family
+Job Function
+Level
+Grade
+Description
+Responsibilities
+Required Skills
+Preferred Skills
+Experience
+Education
+Employment Type
+
+==================================================
+7. JOB DESCRIPTION VERSIONING
+==================================================
+
+Maintain JD history.
+
+Do not silently replace historical job descriptions used in previous hiring.
+
+==================================================
+8. JOB REQUISITION
+==================================================
+
+Create guided requisition workflow.
+
+Include:
+
+Job
+Position
+Openings
+Hiring Manager
+Recruiter
+Location
+Work Mode
+Employment Type
+Experience
+Skills
+Compensation Range where permitted
+Target Hire Date
+Reason
+Hiring Team
+
+==================================================
+9. HIRING TEAM
+==================================================
+
+Support:
+
+Recruiter
+Hiring Manager
+Recruiting Coordinator
+Interviewers
+Approvers
+Observers where permitted
+
+Each role has explicit permissions.
+
+==================================================
+10. REQUISITION STATES
+==================================================
+
+Suggested:
+
+Draft
+Pending Approval
+Approved
+Open
+On Hold
+Filled
+Cancelled
+Closed
+
+==================================================
+11. JOB POSTINGS
+==================================================
+
+One requisition may have multiple postings.
+
+Examples:
+
+Internal Career Site
+External Career Site
+Job Board
+Agency
+Referral Campaign
+
+==================================================
+12. CAREER SITE
+==================================================
+
+Build tenant-branded careers site foundation.
+
+Support:
+
+Logo
+Brand
+Jobs
+Search
+Filters
+Job Details
+Application
+Privacy Notice
+Consent
+
+Mobile-first.
+
+==================================================
+13. CAREER SITE BRANDING
+==================================================
+
+Support configurable:
+
+Logo
+Colors
+Banner
+Company Description
+Social Links
+Privacy Links
+Footer
+
+Keep design professional.
+
+==================================================
+14. JOB SEARCH
+==================================================
+
+Candidate filters:
+
+Keyword
+Location
+Department
+Job Category
+Employment Type
+Work Mode
+
+==================================================
+15. JOB DETAIL
+==================================================
+
+Show:
+
+Role
+Location
+Work Mode
+Responsibilities
+Requirements
+Skills
+Employment Type
+Application CTA
+
+Do not expose internal HR metadata.
+
+==================================================
+16. CANDIDATE MODEL
+==================================================
+
+Separate Candidate identity from Application.
+
+One candidate may apply to multiple jobs.
+
+Avoid duplicate candidate records where reasonably detectable.
+
+==================================================
+17. CANDIDATE PROFILE
+==================================================
+
+Support:
+
+Name
+Email
+Phone
+Location
+Resume
+Experience
+Education
+Skills
+Certifications
+Portfolio
+Linked Profiles where voluntarily provided
+Current Employer
+Notice Period
+Compensation Expectations where appropriate
+Work Authorization
+Preferred Location
+
+==================================================
+18. APPLICATION
+==================================================
+
+Each application contains:
+
+Candidate
+Job/Requisition
+Source
+Applied Date
+Current Stage
+Status
+Recruiter
+Hiring Team
+Answers
+Documents
+Consent
+
+==================================================
+19. APPLICATION QUESTIONS
+==================================================
+
+Support configurable questions:
+
+Text
+Long Text
+Yes/No
+Single Select
+Multi Select
+Number
+Date
+File
+Consent
+
+==================================================
+20. KNOCKOUT QUESTIONS
+==================================================
+
+Support deterministic screening rules.
+
+Example:
+
+Required work authorization.
+
+Required certification.
+
+Do not automatically reject candidates based on protected characteristics.
+
+==================================================
+21. DUPLICATE DETECTION
+==================================================
+
+Detect possible duplicates by:
+
+Email
+Phone
+Candidate-provided identifiers where appropriate
+Resume/contact similarity
+
+Do not auto-merge without authorized review.
+
+==================================================
+22. RESUME MANAGEMENT
+==================================================
+
+Store:
+
+Original Resume
+Parsed Structured Data
+Uploaded Date
+Version
+
+Original candidate document must remain available according to retention policy.
+
+==================================================
+23. RESUME PARSING ARCHITECTURE
+==================================================
+
+Prepare provider/AI adapter architecture.
+
+Parsing may extract:
+
+Experience
+Education
+Skills
+Contact
+Certifications
+
+Parsed information must be distinguishable from candidate-entered/verified information.
+
+==================================================
+24. PIPELINE
+==================================================
+
+Create configurable recruitment pipelines.
+
+Example:
+
+Applied
+Screening
+Recruiter Interview
+Assessment
+Technical Interview
+Manager Interview
+HR Round
+Offer
+Hired
+
+Different job families may use different pipelines.
+
+==================================================
+25. PIPELINE STAGES
+==================================================
+
+Stage configuration supports:
+
+Name
+Order
+Required Actions
+SLA
+Interview Requirement
+Scorecard Requirement
+Automation Hooks
+
+==================================================
+26. PIPELINE BOARD
+==================================================
+
+Create recruiter Kanban view.
+
+Support:
+
+Drag/Move
+Bulk Actions
+Filters
+Candidate Preview
+Stage Counts
+
+Permission checks still occur server-side.
+
+==================================================
+27. STAGE TRANSITIONS
+==================================================
+
+Store:
+
+From Stage
+To Stage
+Changed By
+Changed At
+Reason
+Metadata
+
+Preserve complete application history.
+
+==================================================
+28. STAGE SLA
+==================================================
+
+Track time in stage.
+
+Surface:
+
+Candidates Stuck
+Overdue Feedback
+Hiring Bottlenecks
+
+==================================================
+29. CANDIDATE STATUS
+==================================================
+
+Support:
+
+Active
+Rejected
+Withdrawn
+On Hold
+Offer
+Hired
+Archived
+
+Keep stage and final status conceptually distinct.
+
+==================================================
+30. REJECTION REASONS
+==================================================
+
+Configurable reasons.
+
+Examples:
+
+Skills
+Experience
+Compensation
+Availability
+Position Closed
+Candidate Withdrew
+Other
+
+Sensitive/internal notes require permissions.
+
+==================================================
+31. TALENT POOLS
+==================================================
+
+Create reusable talent pools.
+
+Examples:
+
+Frontend Engineers
+Sales Leadership
+Past Finalists
+Campus Candidates
+
+Support tags and consent/retention rules.
+
+==================================================
+32. SOURCING
+==================================================
+
+Track:
+
+Career Site
+Referral
+Agency
+Job Board
+Social
+Direct Sourcing
+Campus
+Import
+Other
+
+==================================================
+33. SOURCE ATTRIBUTION
+==================================================
+
+Preserve original source and optional latest/touch attribution separately.
+
+Do not overwrite original source.
+
+==================================================
+34. EMPLOYEE REFERRALS
+==================================================
+
+Employees can:
+
+View eligible jobs
+Refer Candidate
+Track Referral Status at an appropriate privacy level
+
+Do not expose confidential recruiting feedback.
+
+==================================================
+35. REFERRAL POLICY FOUNDATION
+==================================================
+
+Prepare:
+
+Eligible Jobs
+Eligibility
+Referral Reward Reference
+Payment Status Placeholder
+
+Actual payment belongs to Payroll/Rewards integration later.
+
+==================================================
+36. AGENCY MANAGEMENT
+==================================================
+
+Support recruiting agencies.
+
+Track:
+
+Agency
+Contacts
+Assigned Jobs
+Submitted Candidates
+Terms Reference
+Status
+
+==================================================
+37. AGENCY PORTAL FOUNDATION
+==================================================
+
+Prepare restricted agency submission experience.
+
+Agencies should never see unrelated candidates/jobs.
+
+==================================================
+38. SCREENING
+==================================================
+
+Recruiters can record:
+
+Screening Outcome
+Notes
+Availability
+Expected Compensation
+Notice Period
+Eligibility
+Next Action
+
+==================================================
+39. ASSESSMENTS
+==================================================
+
+Create assessment architecture.
+
+Support:
+
+Internal Assessment
+External Provider
+Questionnaire
+Technical Test
+Case Study
+Language Test
+
+Do not tightly couple to one provider.
+
+==================================================
+40. INTERVIEW TYPES
+==================================================
+
+Support:
+
+Phone
+Video
+In Person
+Technical
+Behavioral
+Manager
+HR
+Panel
+Custom
+
+==================================================
+41. INTERVIEW SCHEDULING
+==================================================
+
+Support:
+
+Candidate
+Interviewers
+Date
+Time
+Timezone
+Duration
+Mode
+Location/Meeting Link
+Instructions
+
+Timezone handling is mandatory.
+
+==================================================
+42. CALENDAR INTEGRATION ARCHITECTURE
+==================================================
+
+Prepare provider adapters for:
+
+Google Calendar
+Microsoft Calendar
+
+Support future:
+
+Availability
+Event Creation
+Updates
+Cancellation
+
+Do not make ATS dependent on one calendar vendor.
+
+==================================================
+43. INTERVIEW PANEL
+==================================================
+
+Support multiple interviewers with:
+
+Role
+Required Feedback
+Scorecard
+Interview Stage
+
+==================================================
+44. INTERVIEW SCORECARDS
+==================================================
+
+Create structured scorecards.
+
+Criteria:
+
+Competency
+Skill
+Behavior
+Experience
+Custom Criterion
+
+Rating scales must be configurable.
+
+==================================================
+45. INDEPENDENT FEEDBACK
+==================================================
+
+Optionally prevent interviewers from seeing others' feedback until they submit their own.
+
+Reduces group influence.
+
+==================================================
+46. FEEDBACK
+==================================================
+
+Capture:
+
+Rating
+Recommendation
+Strengths
+Concerns
+Notes
+Submitted At
+
+==================================================
+47. FEEDBACK DEADLINES
+==================================================
+
+Generate My Work tasks and reminders for overdue interview feedback.
+
+==================================================
+48. STRUCTURED HIRING
+==================================================
+
+Encourage consistent evaluation criteria across candidates for the same role.
+
+Do not allow AI to make autonomous hiring decisions.
+
+==================================================
+49. CANDIDATE COMPARISON
+==================================================
+
+Authorized hiring team can compare candidates using consistent job-related criteria.
+
+Avoid protected/sensitive attributes.
+
+==================================================
+50. INTERVIEW KIT
+==================================================
+
+Provide interviewers:
+
+Candidate Summary
+Resume
+Role
+Interview Focus
+Questions
+Scorecard
+
+Hide compensation/private HR notes unless permission allows.
+
+==================================================
+51. INTERVIEW QUESTION BANK
+==================================================
+
+Create reusable questions categorized by:
+
+Job
+Skill
+Competency
+Level
+Interview Type
+
+==================================================
+52. COMMUNICATION
+==================================================
+
+Create candidate communication architecture.
+
+Support:
+
+Email Templates
+Interview Invitation
+Application Confirmation
+Rejection
+Offer
+Reminder
+Custom Message
+
+Track communication history.
+
+==================================================
+53. COMMUNICATION TEMPLATES
+==================================================
+
+Support tenant branding and localization.
+
+Templates should use safe variables.
+
+==================================================
+54. CANDIDATE NOTIFICATIONS
+==================================================
+
+Avoid exposing internal evaluation details.
+
+==================================================
+55. CANDIDATE PORTAL FOUNDATION
+==================================================
+
+Candidate can eventually:
+
+View Application
+Upload Documents
+Confirm Interview
+Update Information
+Review Offer
+Accept/Decline
+
+Use secure token/account architecture.
+
+==================================================
+56. OFFER MANAGEMENT
+==================================================
+
+Create offer workflow.
+
+Fields:
+
+Candidate
+Job
+Position
+Legal Entity
+Location
+Designation
+Grade
+Employee Type
+Joining Date
+Compensation
+Currency
+Offer Expiry
+Conditions
+
+==================================================
+57. OFFER COMPENSATION
+==================================================
+
+Reuse Phase 5 compensation structures where applicable.
+
+Do not create separate incompatible compensation logic.
+
+==================================================
+58. OFFER APPROVAL
+==================================================
+
+Possible chain:
+
+Hiring Manager
+HR
+Finance
+Leadership
+
+Conditional based on compensation/band/grade.
+
+==================================================
+59. OFFER VERSIONING
+==================================================
+
+If offer changes:
+
+Retain previous versions.
+
+Track reason and approver.
+
+==================================================
+60. OFFER LETTER
+==================================================
+
+Create document-template architecture.
+
+Support:
+
+Tenant Branding
+Country Template
+Legal Entity
+Role
+Compensation
+Joining Date
+Variables
+
+==================================================
+61. E-SIGNATURE FOUNDATION
+==================================================
+
+Prepare provider adapter architecture.
+
+Do not hard-code one signature provider.
+
+==================================================
+62. OFFER STATUS
+==================================================
+
+Draft
+Approval Pending
+Approved
+Sent
+Viewed
+Accepted
+Declined
+Expired
+Withdrawn
+
+==================================================
+63. OFFER NEGOTIATION
+==================================================
+
+Track revised offer versions rather than overwriting.
+
+==================================================
+64. PRE-JOINING DOCUMENTS
+==================================================
+
+Candidate may securely upload required documents.
+
+Use Phase 2 employee-document architecture where conversion permits.
+
+==================================================
+65. BACKGROUND CHECK FOUNDATION
+==================================================
+
+Create provider/reference architecture.
+
+Statuses:
+
+Not Started
+Consent Required
+In Progress
+Completed
+Review Required
+
+Do not make autonomous employment decisions from provider results.
+
+==================================================
+66. PRE-JOINER
+==================================================
+
+Once appropriate hiring milestone reached, create controlled pre-joiner state.
+
+Do not yet duplicate full employee data manually.
+
+==================================================
+67. CANDIDATE → EMPLOYEE CONVERSION
+==================================================
+
+Major architectural requirement.
+
+On hire:
+
+Reuse candidate/person data where appropriate.
+
+Create:
+
+Person
+Employment
+Employee Record
+Organization Assignment
+Compensation
+Joining Information
+User Invitation when appropriate
+
+Transfer approved documents.
+
+Preserve recruitment history.
+
+==================================================
+68. CONVERSION PREVIEW
+==================================================
+
+Before conversion show:
+
+Candidate
+Legal Entity
+Location
+Department
+Position
+Designation
+Manager
+Employee Type
+Joining Date
+Compensation
+Documents
+
+Highlight missing required fields.
+
+==================================================
+69. DUPLICATE EMPLOYEE CHECK
+==================================================
+
+Before conversion, check whether candidate already exists as:
+
+Person
+Former Employee
+Current Employee
+Contractor
+Pre-Joiner
+
+Support rehire/secondary-employment workflows appropriately.
+
+==================================================
+70. INTERNAL HIRING
+==================================================
+
+Support existing employees applying internally.
+
+Do not create duplicate Person records.
+
+Prepare for future Internal Mobility.
+
+==================================================
+71. CONFIDENTIAL JOBS
+==================================================
+
+Support restricted requisitions.
+
+Only explicitly authorized users can discover/access them.
+
+==================================================
+72. CAMPUS HIRING FOUNDATION
+==================================================
+
+Support:
+
+Institution
+Campaign
+Batch
+Job
+Candidates
+Assessment
+Interview
+
+Do not overbuild campus ERP functionality.
+
+==================================================
+73. BULK CANDIDATE IMPORT
+==================================================
+
+Support CSV/XLSX and controlled resume uploads.
+
+Provide:
+
+Mapping
+Validation
+Duplicate Detection
+Consent/Source Metadata
+Error Handling
+
+==================================================
+74. BULK ACTIONS
+==================================================
+
+Authorized recruiters can:
+
+Move Stage
+Assign Recruiter
+Tag
+Reject
+Email
+Add to Talent Pool
+
+Require preview for destructive actions.
+
+==================================================
+75. CANDIDATE TAGS
+==================================================
+
+Use tags for flexible organization but do not replace structured data.
+
+==================================================
+76. SAVED VIEWS
+==================================================
+
+Examples:
+
+My Open Roles
+Candidates Awaiting Screening
+Feedback Overdue
+Offers Pending
+Joining This Month
+Stuck Candidates
+
+==================================================
+77. RECRUITER DASHBOARD
+==================================================
+
+Show actionable information:
+
+Open Requisitions
+Candidates Needing Action
+Interviews Today
+Feedback Pending
+Offers
+Upcoming Joiners
+Stage SLA Issues
+
+Avoid decorative graphs.
+
+==================================================
+78. RECRUITMENT COMMAND CENTER
+==================================================
+
+Create:
+
+TALENT ACQUISITION COMMAND CENTER
+
+Sections:
+
+Hiring Demand
+Open Positions
+Pipeline Health
+Candidate Bottlenecks
+Interview Feedback Due
+Offer Approvals
+Offer Risks
+Upcoming Joiners
+Data/Privacy Issues
+
+Every issue should lead to action.
+
+==================================================
+79. HIRING MANAGER VIEW
+==================================================
+
+Provide focused experience:
+
+My Open Roles
+Candidates to Review
+Interviews
+Feedback Required
+Offers
+Hiring Progress
+
+Do not expose recruiter administration complexity.
+
+==================================================
+80. CANDIDATE EXPERIENCE
+==================================================
+
+Prioritize:
+
+Mobile Application
+Clear Status Messaging
+Fast Forms
+Resume Upload
+Timezone-Correct Interviews
+Accessible Experience
+Professional Communication
+
+==================================================
+81. RECRUITMENT ANALYTICS
+==================================================
+
+Provide:
+
+Open Roles
+Applications
+Stage Conversion
+Time to Screen
+Time in Stage
+Time to Offer
+Time to Hire
+Offer Acceptance
+Source Performance
+Requisition Aging
+
+Define metrics explicitly.
+
+==================================================
+82. FUNNEL
+==================================================
+
+Show meaningful pipeline conversion without misleading interpretation.
+
+==================================================
+83. SOURCE QUALITY FOUNDATION
+==================================================
+
+Track downstream outcomes by source.
+
+Do not use simplistic AI scoring to declare candidates or sources "good" without transparent metrics.
+
+==================================================
+84. RECRUITMENT DATA QUALITY
+==================================================
+
+Detect:
+
+Requisition Without Recruiter
+Missing Hiring Manager
+Stale Candidate
+Feedback Overdue
+Offer Expiring
+Duplicate Candidate
+Position Already Filled
+Candidate Consent Expiring
+Missing Joining Information
+
+==================================================
+85. RECRUITMENT ACTION CENTER
+==================================================
+
+Surface:
+
+12 Candidates Need Screening
+
+7 Interview Feedback Forms Overdue
+
+3 Offers Await Approval
+
+2 Offers Expire Tomorrow
+
+4 New Joiners Missing Documents
+
+==================================================
+86. MY WORK
+==================================================
+
+Generate:
+
+Approve Requisition
+Review Candidate
+Submit Interview Feedback
+Approve Offer
+Upload/Verify Joining Document
+Complete Hiring Conversion
+
+==================================================
+87. NOTIFICATIONS
+==================================================
+
+Support:
+
+Interview Scheduled
+Interview Changed
+Feedback Reminder
+Offer Approval
+Offer Accepted
+Candidate Joined
+Joining Date Approaching
+
+==================================================
+88. EMPLOYEE 360
+==================================================
+
+After hiring, authorized HR may access appropriate recruitment-origin context.
+
+Do not expose confidential interviewer notes to ordinary employee profile viewers.
+
+==================================================
+89. ORGANIZATION MEMORY
+==================================================
+
+Preserve:
+
+Requisition
+Job Version
+Candidate Source
+Pipeline Journey
+Interview History
+Offer Version
+Hiring Decision
+Conversion
+
+according to retention/privacy rules.
+
+==================================================
+90. PRIVACY & CONSENT
+==================================================
+
+Recruitment data requires dedicated privacy handling.
+
+Support:
+
+Consent
+Privacy Notice Version
+Consent Timestamp
+Purpose
+Retention Period
+Withdrawal/Deletion Workflow
+Country Applicability
+
+==================================================
+91. DATA RETENTION
+==================================================
+
+Configure candidate retention by country/tenant.
+
+Expired data should enter controlled deletion/anonymization workflows.
+
+Do not retain candidates indefinitely by default.
+
+==================================================
+92. SENSITIVE DATA
+==================================================
+
+Avoid collecting unnecessary protected/sensitive attributes.
+
+If legally required, isolate with strict permissions and purpose.
+
+==================================================
+93. FAIR HIRING ARCHITECTURE
+==================================================
+
+Do not make automated final hiring decisions.
+
+AI-assisted features must remain advisory.
+
+Human decision makers remain accountable.
+
+==================================================
+94. AI ASSISTANCE FOUNDATION
+==================================================
+
+Prepare controlled future assistance for:
+
+JD Drafting
+Resume Summaries
+Candidate Search
+Interview Question Suggestions
+Communication Drafts
+Recruiter Summaries
+
+Outputs must be reviewable.
+
+==================================================
+95. AI RESTRICTIONS
+==================================================
+
+Do NOT allow AI to:
+
+Autonomously reject candidates based on inferred traits
+
+Infer protected characteristics
+
+Rank candidates using opaque criteria
+
+Generate unsupported factual claims about candidates
+
+==================================================
+96. TALENT MATCH EXPLAINABILITY
+==================================================
+
+If future matching is used, explain job-related factors.
+
+Example:
+
+Matched Skills:
+React
+Laravel
+MySQL
+
+Required Experience:
+5 years
+
+Candidate-Provided Experience:
+6 years
+
+Never output unexplained "87% suitable" scores as hiring truth.
+
+==================================================
+97. SEARCH
+==================================================
+
+Recruiter search across permitted candidates by:
+
+Name
+Skill
+Experience
+Location
+Job
+Stage
+Source
+Tag
+Education
+Certification
+
+Search respects retention and permission rules.
+
+==================================================
+98. API ARCHITECTURE
+==================================================
+
+Suggested:
+
+/api/v1/recruitment/requisitions
+/api/v1/recruitment/jobs
+/api/v1/recruitment/positions
+/api/v1/recruitment/postings
+/api/v1/recruitment/candidates
+/api/v1/recruitment/applications
+/api/v1/recruitment/pipelines
+/api/v1/recruitment/interviews
+/api/v1/recruitment/feedback
+/api/v1/recruitment/assessments
+/api/v1/recruitment/offers
+/api/v1/recruitment/talent-pools
+/api/v1/recruitment/referrals
+/api/v1/recruitment/agencies
+/api/v1/recruitment/imports
+/api/v1/recruitment/reports
+/api/v1/careers/jobs
+/api/v1/careers/applications
+
+Public career APIs require appropriate abuse/rate protection.
+
+==================================================
+99. DATABASE FOUNDATION
+==================================================
+
+Design normalized tables for at least:
+
+job_definitions
+job_definition_versions
+job_requisitions
+requisition_approvals
+job_postings
+recruitment_pipelines
+recruitment_pipeline_stages
+candidates
+candidate_contacts
+candidate_documents
+candidate_experience
+candidate_education
+candidate_skills
+applications
+application_answers
+application_stage_history
+candidate_sources
+talent_pools
+talent_pool_members
+employee_referrals
+recruitment_agencies
+agency_submissions
+assessments
+candidate_assessments
+interviews
+interview_panel_members
+interview_scorecards
+interview_feedback
+offers
+offer_versions
+offer_approvals
+candidate_consents
+candidate_communications
+candidate_imports
+candidate_conversion_records
+
+==================================================
+100. SCALE
+==================================================
+
+Prepare for:
+
+Thousands of Open Jobs
+Millions of Applications
+Large Resume Collections
+Bulk Candidate Imports
+High Career-Site Traffic
+
+Use:
+
+Pagination
+Search Index Architecture
+Queues
+Background Parsing
+Indexes
+Lazy Loading
+
+==================================================
+101. CAREER SITE SECURITY
+==================================================
+
+Protect against:
+
+Spam
+Abusive Uploads
+Malicious Files
+Enumeration
+Excessive Requests
+
+Validate uploads and rate-limit public endpoints.
+
+==================================================
+102. INTERNAL SECURITY
+==================================================
+
+Apply:
+
+Tenant Isolation
+Recruiter Data Scopes
+Hiring-Team Permissions
+Confidential Job Permissions
+Sensitive Note Permissions
+Secure Documents
+Audit
+Export Controls
+
+==================================================
+103. MOBILE/RESPONSIVE
+==================================================
+
+Candidate experience must be excellent on mobile.
+
+Recruiter mobile should support essential actions:
+
+Candidate Review
+Feedback
+Interview
+Approval
+
+Complex pipeline administration remains optimized for larger screens.
+
+==================================================
+104. UNIQUE VALUE — HIRING EXPLAINER
+==================================================
+
+For authorized users show:
+
+Why is this candidate waiting?
+
+Example:
+
+Current Stage:
+Technical Interview
+
+Waiting:
+3 days
+
+Blocking Action:
+Interview feedback from 2 panel members
+
+Next Action:
+Submit Feedback
+
+==================================================
+105. UNIQUE VALUE — HIRING READINESS
+==================================================
+
+For an offer/pre-joiner show:
+
+Offer Accepted
+Joining Date Confirmed
+Required Documents
+Position Available
+Manager Assigned
+Compensation Approved
+Employee Conversion Ready
+
+Use deterministic states.
+
+==================================================
+106. UNIQUE VALUE — PIPELINE HEALTH
+==================================================
+
+Surface operational bottlenecks instead of opaque scores.
+
+Examples:
+
+Technical Interview stage median waiting time increased.
+
+12 candidates awaiting feedback.
+
+5 roles have no candidates beyond screening.
+
+==================================================
+107. UNIQUE VALUE — CANDIDATE JOURNEY
+==================================================
+
+Chronological story:
+
+Applied
+
+Screened
+
+Interviewed
+
+Assessment Completed
+
+Offer Sent
+
+Offer Revised
+
+Offer Accepted
+
+Pre-Joining Completed
+
+Employee Created
+
+==================================================
+108. UNIQUE VALUE — HIRING IMPACT PREVIEW
+==================================================
+
+Before converting candidate:
+
+Show resulting:
+
+Legal Entity
+Department
+Position Occupancy
+Manager
+Employee Type
+Compensation
+Payroll Group
+Leave Policy
+Attendance Policy
+Joining Tasks
+
+Warn about unresolved configuration.
+
+==================================================
+109. UNIQUE VALUE — TALENT MEMORY
+==================================================
+
+With valid consent/retention, preserve useful candidate relationship context.
+
+Past finalist can be rediscovered for future suitable roles.
+
+Respect deletion/retention requirements.
+
+==================================================
+110. UNIQUE VALUE — INTERNAL TALENT FOUNDATION
+==================================================
+
+Design candidate architecture so existing employees can later participate in:
+
+Internal Jobs
+Career Opportunities
+Talent Marketplace
+Succession
+Mobility
+
+Do not build full Talent Marketplace yet.
+
+==================================================
+111. CROSS-MODULE ACTION & INTELLIGENCE
+==================================================
+
+Feed:
+
+Recruitment
+People
+Compensation
+My Work
+Notifications
+
+into the shared HR Action & Intelligence Layer.
+
+Examples:
+
+Offer accepted but no position available
+
+Joining employee missing payroll group
+
+Candidate hired but required documents incomplete
+
+Interview delayed
+
+Offer approval overdue
+
+==================================================
+112. DOMAIN EVENTS
+==================================================
+
+Create:
+
+RequisitionCreated
+RequisitionApproved
+JobPublished
+CandidateApplied
+CandidateStageChanged
+InterviewScheduled
+InterviewCompleted
+FeedbackSubmitted
+OfferCreated
+OfferApproved
+OfferSent
+OfferAccepted
+OfferDeclined
+CandidateHired
+PreJoinerCreated
+CandidateConvertedToEmployee
+
+==================================================
+113. AUTOMATION-READY ARCHITECTURE
+==================================================
+
+Future central automation examples:
+
+IF candidate enters Interview
+THEN create scheduling task.
+
+IF feedback overdue 24h
+THEN remind interviewer.
+
+IF offer expires in 2 days
+THEN notify recruiter.
+
+IF offer accepted
+THEN initiate pre-joining workflow.
+
+Do not build an isolated recruitment automation engine.
+
+==================================================
+114. TESTING
+==================================================
+
+Test:
+
+Tenant Isolation
+Requisition Permissions
+Approval
+Job Publishing
+Candidate Creation
+Duplicate Detection
+Applications
+Pipeline
+Stage History
+Interviews
+Timezone
+Scorecards
+Feedback Privacy
+Offers
+Offer Versioning
+Candidate Consent
+Retention
+Referral
+Agency Scope
+Candidate → Employee Conversion
+Internal Candidate
+Confidential Job
+
+==================================================
+115. EDGE CASES
+==================================================
+
+Explicitly test:
+
+Candidate Applies Twice
+Candidate Applies to Multiple Jobs
+Former Employee Applies
+Current Employee Applies
+Offer Revised Multiple Times
+Offer Expires
+Position Filled During Hiring
+Hiring Manager Changes
+Recruiter Leaves
+Interview Across Timezones
+Candidate Withdraws After Offer
+Candidate Accepts Then Declines
+Joining Date Changes
+Duplicate Candidate Merge Review
+Candidate Deletion Request
+
+==================================================
+116. PHASE 6 COMPLETION REPORT
+==================================================
+
+Report:
+
+Recruitment Architecture
+Database
+Requisition Engine
+Job Architecture
+Career Site
+Candidate Architecture
+ATS Pipeline
+Interview System
+Scorecards
+Offer Engine
+Pre-Joining
+Candidate Conversion
+APIs
+Frontend
+Recruitment Command Center
+Candidate Experience
+Privacy
+Security
+Analytics
+Action & Intelligence Integration
+Tests
+Known Issues
+Technical Debt
+Phase 7 Readiness
+
+==================================================
+PHASE 6 SUCCESS CRITERIA
+==================================================
+
+The HRMS must reliably manage the complete journey:
+
+Hiring Need
+
+→ Requisition
+
+→ Approval
+
+→ Job
+
+→ Posting
+
+→ Candidate
+
+→ Application
+
+→ Screening
+
+→ Assessment
+
+→ Interview
+
+→ Feedback
+
+→ Decision
+
+→ Offer
+
+→ Acceptance
+
+→ Pre-Joiner
+
+→ Employee
+
+without duplicate employee entry or disconnected systems.
+
+Recruiters must understand:
+
+What needs action?
+
+Where is each candidate?
+
+Who is blocking progress?
+
+Which offers need attention?
+
+Which hires are ready to join?
+
+Hiring managers must have a focused experience.
+
+Candidates must have a professional, mobile-friendly experience.
+
+All recruitment operations must respect:
+
+Tenant Isolation
+RBAC
+Data Scope
+Privacy
+Consent
+Retention
+Audit
+Country Requirements
+Historical Integrity
+Explainability
+Structured Hiring
+
+DO NOT START PHASE 7.

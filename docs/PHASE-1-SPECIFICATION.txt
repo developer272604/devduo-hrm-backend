@@ -1,0 +1,370 @@
+Continue using the HRM Master Specification.
+
+PHASE 1 OBJECTIVE:
+
+Build the production foundation of the HRM.
+
+Do NOT start payroll, recruitment, performance or other advanced HR modules yet.
+
+==================================================
+1. PROJECT FOUNDATION
+==================================================
+
+Set up/verify:
+
+Frontend:
+React + Vite + JavaScript
+
+Backend:
+Laravel REST API
+
+Database:
+MySQL
+
+Create clean environment configuration.
+
+Create:
+- frontend structure
+- backend module/domain structure
+- API client
+- authentication architecture
+- route structure
+- reusable layouts
+- error handling
+- reusable UI primitives
+
+==================================================
+2. DESIGN SYSTEM
+==================================================
+
+Create the purple-based HRM design system.
+
+Build reusable:
+
+Button
+Input
+Select
+Multi-select
+Textarea
+Checkbox
+Radio
+Switch
+Date Picker
+Date Range
+Time Picker
+Badge
+Avatar
+Tooltip
+Dropdown
+Popover
+Modal
+Drawer
+Tabs
+Accordion
+Breadcrumb
+Pagination
+Skeleton
+Empty State
+Error State
+Toast
+Confirmation Dialog
+Data Table
+Filter Bar
+Search
+Stat Card
+Activity Timeline
+
+Use a restrained purple identity.
+
+No generic AI aesthetic.
+
+==================================================
+3. APPLICATION SHELL
+==================================================
+
+Build:
+
+Desktop sidebar
+Top header
+Responsive navigation
+Page header
+Breadcrumbs
+Content containers
+Global notifications area
+Profile menu
+Quick actions
+Global search placeholder
+My Work navigation
+
+Sidebar should support:
+- collapsed mode
+- expanded mode
+- nested sections
+- permission-aware items
+- enabled-module filtering
+
+==================================================
+4. AUTHENTICATION
+==================================================
+
+Implement:
+
+Login
+Logout
+Forgot Password
+Reset Password
+Change Password
+Session handling
+Remember me where appropriate
+Account lock/rate-limit behavior
+Unauthorized screen
+Forbidden screen
+Session expired handling
+
+Prepare architecture for future:
+- MFA
+- Google/Microsoft SSO
+- SAML/OIDC
+
+==================================================
+5. LOGIN UI
+==================================================
+
+Create a premium but restrained login page.
+
+Purple branding.
+
+Desktop can use split layout:
+Brand/product area + authentication form.
+
+Mobile should become single-column.
+
+Do not use excessive gradients.
+
+Include:
+- company/product logo
+- email
+- password
+- show password
+- remember me
+- forgot password
+- login button
+- validation
+- loading
+- error
+- account/security messages
+
+==================================================
+6. MULTI-TENANT FOUNDATION
+==================================================
+
+Implement tenant-aware architecture.
+
+Core entities:
+
+Tenant
+Legal Entity
+Location
+Business Unit
+Department
+Team
+Cost Center
+Designation
+Position
+Grade
+Level
+Employee Type
+
+Every tenant-owned record must be isolated.
+
+Create tenant-isolation tests.
+
+==================================================
+7. USERS / ROLES / PERMISSIONS
+==================================================
+
+Implement:
+
+Users
+Roles
+Permissions
+User Roles
+Role Permissions
+
+Prepare organizational/data scopes.
+
+Create admin UI for:
+- users
+- roles
+- permissions
+- role assignment
+
+Do NOT expose raw technical complexity unnecessarily.
+
+Create understandable permission grouping.
+
+==================================================
+8. COMPANY SETUP WIZARD
+==================================================
+
+Create first-time setup:
+
+Step 1 Company
+Step 2 Legal Entity
+Step 3 Location
+Step 4 Departments
+Step 5 Work Week
+Step 6 Employee Types
+Step 7 Admin/HR Settings
+Step 8 Review
+
+Allow saving progress.
+
+==================================================
+9. DASHBOARD FOUNDATION
+==================================================
+
+Build role-aware dashboard architecture.
+
+Do not fill it with fake decorative graphs.
+
+Create useful components:
+
+Greeting
+My Work
+Quick Actions
+Today's Attendance
+People Away
+Upcoming Events
+Announcements
+Pending Approvals
+Important Alerts
+
+Content must change based on permissions/role.
+
+==================================================
+10. MY WORK FOUNDATION
+==================================================
+
+Create a unified task model capable of receiving tasks from future modules.
+
+Fields should support:
+- source module
+- source entity
+- assignee
+- priority
+- due date
+- status
+- action
+- metadata
+
+Build My Work page with:
+- Open
+- Due Soon
+- Overdue
+- Completed
+- filters
+- search
+
+==================================================
+11. NOTIFICATION FOUNDATION
+==================================================
+
+Implement in-app notification architecture.
+
+Notification center:
+- unread/read
+- mark all read
+- filter
+- link to action
+- timestamp
+- category
+
+==================================================
+12. AUDIT FOUNDATION
+==================================================
+
+Create audit architecture now.
+
+Build admin Audit Log screen.
+
+Support filters:
+- user
+- action
+- module
+- resource
+- date
+- IP/context where stored
+
+==================================================
+13. ADMIN SETTINGS
+==================================================
+
+Create settings navigation for:
+
+Company
+Organization
+Locations
+Employee Types
+Roles
+Permissions
+Security
+Notifications
+Modules
+Branding
+
+==================================================
+14. ERROR/UX STATES
+==================================================
+
+Every major screen must contain:
+
+Loading
+Skeleton
+Empty
+Error
+No permission
+Success feedback
+
+==================================================
+15. RESPONSIVE
+==================================================
+
+Test:
+
+1440 desktop
+1024 laptop/tablet
+768 tablet
+mobile
+
+Do not merely shrink desktop tables.
+
+Provide mobile-appropriate behavior.
+
+==================================================
+16. TESTING
+==================================================
+
+Test:
+
+Authentication
+Tenant isolation
+RBAC
+Protected routes
+API authorization
+Setup wizard
+Responsive navigation
+Form validation
+
+At completion, report:
+
+- architecture created
+- database tables
+- routes/APIs
+- frontend pages
+- reusable components
+- tests
+- known issues
+- Phase 2 readiness
+
+Do NOT start Phase 2 automatically.
