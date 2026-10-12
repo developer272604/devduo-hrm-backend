@@ -67,6 +67,66 @@ class WorkflowTest extends PerformanceTestCase
         $this->postJson($path.'/control', ['action' => 'retry', 'reason' => 'Beyond retry limit'])->assertUnprocessable();
     }
 
+    public function test_assignment_delegation_reassigns_task_and_preserves_independent_approval(): void
+    {
+        $manager = $this->userOf($this->mgr);
+        $delegate = $this->checker;
+        $d = $this->definition([$this->step(['assignees' => [$manager->id]])]);
+        $this->publish($d);
+        $i = $this->start($d);
+        $path = '/api/v1/workflows/instances/'.$i['uuid'];
+
+        $this->signIn($this->admin);
+        $this->getJson($path.'/delegates')->assertOk()->assertJsonFragment(['id' => $delegate->id]);
+        $this->postJson($path.'/delegate', ['from_user_id' => $manager->id, 'to_user_id' => $delegate->id, 'reason' => 'Out of office'])->assertOk();
+        $instanceId = DB::table('workflow_instances')->where('uuid', $i['uuid'])->value('id');
+        $this->assertSame(1, DB::table('workflow_assignments')->where('instance_id', $instanceId)->where('user_id', $manager->id)->where('status', 'delegated')->count());
+        $this->assertSame(1, DB::table('workflow_assignments')->where('instance_id', $instanceId)->where('user_id', $delegate->id)->where('status', 'pending')->count());
+        $this->assertSame(0, DB::table('work_items')->where('source_module', 'workflows')->where('assignee_id', $manager->id)->where('status', 'open')->count());
+        $this->assertSame(1, DB::table('work_items')->where('source_module', 'workflows')->where('assignee_id', $delegate->id)->where('status', 'open')->count());
+
+        $this->signIn($delegate);
+        $this->postJson($path.'/decide', ['decision' => 'approved', 'reason' => 'Covered while manager was away'])->assertOk()->assertJsonPath('status', 'completed');
+    }
+
+    public function test_deadline_escalation_reassigns_once_then_fails_if_overdue_again(): void
+    {
+        $manager = $this->userOf($this->mgr);
+        $delegate = $this->checker;
+        $d = $this->definition([$this->step(['assignees' => [$manager->id], 'timeout_hours' => 1, 'escalation_hours' => 1, 'escalation_assignees' => [$delegate->id]])]);
+        $this->publish($d);
+        $i = $this->start($d);
+        $path = '/api/v1/workflows/instances/'.$i['uuid'];
+
+        $this->travel(2)->hours();
+        $this->signIn($this->admin);
+        app(WorkflowService::class)->tick();
+        $this->getJson($path)->assertOk()->assertJsonPath('status', 'waiting');
+        $this->assertSame(1, DB::table('workflow_assignments')->where('instance_id', DB::table('workflow_instances')->where('uuid', $i['uuid'])->value('id'))->where('status', 'escalated')->count());
+        $this->assertSame(1, DB::table('workflow_assignments')->where('instance_id', DB::table('workflow_instances')->where('uuid', $i['uuid'])->value('id'))->where('status', 'pending')->where('user_id', $delegate->id)->count());
+        $this->assertSame(1, DB::table('workflow_executions')->where('event', 'escalated')->count());
+        DB::table('workflow_instances')->where('uuid', $i['uuid'])->update(['due_at' => now()->subMinute()]);
+        $this->signIn($delegate);
+        $this->postJson($path.'/decide', ['decision' => 'approved', 'reason' => 'Trying after escalation deadline'])->assertOk()
+            ->assertJsonPath('status', 'failed')->assertJsonPath('failure_code', 'deadline_exceeded');
+    }
+
+    public function test_employment_status_trigger_filters_target_status(): void
+    {
+        $spec = ['steps' => [$this->step(['action' => 'task', 'assignment' => 'manager', 'assignees' => []])],
+            'trigger' => ['type' => 'event', 'event_type' => 'EmploymentStatusChanged', 'status' => 'active']];
+        $d = $this->postJson('/api/v1/workflows/definitions', ['name' => 'Activation task', 'spec' => $spec])->assertCreated()->json();
+        $this->publish($d);
+        $this->signIn($this->admin);
+        app(\App\Domain\Events\DomainEvents::class)->record('EmploymentStatusChanged', ['employee' => $this->emp1->id, 'summary' => 'Suspended', 'payload' => ['to' => 'suspended']]);
+        app(TriggerDispatcher::class)->dispatch();
+        $this->assertSame(0, DB::table('workflow_deliveries')->count());
+        app(\App\Domain\Events\DomainEvents::class)->record('EmploymentStatusChanged', ['employee' => $this->emp1->id, 'summary' => 'Activated', 'payload' => ['to' => 'active']]);
+        app(TriggerDispatcher::class)->dispatch();
+        $this->assertSame(1, DB::table('workflow_deliveries')->count());
+        $this->assertSame(1, DB::table('workflow_instances')->count());
+    }
+
     private function step(array $extra = []): array
     {
         return $extra + ['title' => 'Review employee request', 'action' => 'approval', 'assignment' => 'fixed', 'assignees' => [$this->checker->id], 'mode' => 'all', 'timeout_hours' => 24];
