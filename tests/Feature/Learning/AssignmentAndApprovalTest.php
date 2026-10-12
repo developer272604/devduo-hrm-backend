@@ -62,6 +62,35 @@ class AssignmentAndApprovalTest extends LearningTestCase
         $this->assertSame('waitlisted', $this->enrolmentOf($this->emp2, $c)->status);
     }
 
+    public function test_cancelling_enrolment_promotes_oldest_waitlisted_employee(): void
+    {
+        $c = $this->course('CAP-2');
+        $s = $this->makeSession($c, 'CAP-S2', '2026-11-02', '2026-11-03', ['capacity' => 1]);
+        $this->assign($c, [$this->emp1, $this->emp2], ['session_uuid' => $s])->assertCreated();
+        $first = $this->enrolmentOf($this->emp1, $c)->uuid;
+        $second = $this->enrolmentOf($this->emp2, $c)->uuid;
+
+        $this->postJson($this->p("enrolments/$first/cancel"), ['note' => 'Employee cannot attend'])->assertOk()
+            ->assertJsonPath('cancelled.status', 'cancelled')->assertJsonPath('promoted.uuid', $second)->assertJsonPath('promoted.status', 'enrolled');
+        $this->context($this->admin->tenant_id);
+        $this->assertSame('cancelled', Enrolment::where('uuid', $first)->value('status'));
+        $this->assertSame('enrolled', Enrolment::where('uuid', $second)->value('status'));
+        $this->assertNull(Enrolment::where('uuid', $second)->value('waitlisted_at'));
+    }
+
+    public function test_self_cancel_waitlisted_enrolment_does_not_promote_or_cancel_others(): void
+    {
+        $c = $this->course('CAP-3');
+        $s = $this->makeSession($c, 'CAP-S3', '2026-11-02', '2026-11-03', ['capacity' => 1]);
+        $this->assign($c, [$this->emp1, $this->emp2], ['session_uuid' => $s])->assertCreated();
+        $waitlisted = $this->enrolmentOf($this->emp2, $c)->uuid;
+
+        $this->actAs($this->emp2);
+        $this->postJson($this->p("enrolments/$waitlisted/cancel"), [])->assertOk()->assertJsonPath('cancelled.status', 'cancelled')->assertJsonPath('promoted', null);
+        $this->context($this->admin->tenant_id);
+        $this->assertSame('enrolled', $this->enrolmentOf($this->emp1, $c)->status);
+    }
+
     public function test_approval_required_enrolment_routes_to_manager_my_work_and_is_decided_once_with_maker_checker(): void
     {
         $c = $this->course('APPR-1', ['requires_approval' => true]);

@@ -145,6 +145,43 @@ final class EnrolmentService
         });
     }
 
+    public function cancel(User $actor, Enrolment $e, ?string $note = null): array
+    {
+        $emp = Employee::findOrFail($e->employee_id);
+        $self = $this->access->isSelf($actor, $emp) && $actor->allows('learning.self');
+        abort_unless($self || ($actor->allows('learning.enrol.manage') && $this->access->reaches($actor, $emp, 'learning.enrol.manage')), 404);
+        if (! in_array($e->status, ['pending_approval', 'enrolled', 'waitlisted', 'in_progress'], true)) throw ValidationException::withMessages(['status' => 'Only active enrolments can be cancelled.']);
+        if ($e->status === 'in_progress' && $self) throw ValidationException::withMessages(['status' => 'Ask your learning administrator to cancel an in-progress session.']);
+
+        return DB::transaction(function () use ($actor, $e, $note) {
+            $e = Enrolment::whereKey($e->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($e->status, ['pending_approval', 'enrolled', 'waitlisted', 'in_progress'], true)) throw ValidationException::withMessages(['status' => 'Only active enrolments can be cancelled.']);
+            $wasHoldingSeat = in_array($e->status, ['enrolled', 'in_progress'], true);
+            $sessionId = $e->session_id;
+            $e->update(['status' => 'cancelled', 'decision_note' => $note ? mb_substr($note, 0, 500) : 'Cancelled by request.']);
+            app(TaskService::class)->completeBySource('learning', 'enrolment:'.$e->uuid);
+            $promoted = $wasHoldingSeat && $sessionId ? $this->promoteWaitlist($sessionId) : null;
+            Audit::record('enrolment.cancelled', 'learning', 'enrolment:'.$e->uuid, ['by' => $actor->id, 'promoted' => $promoted?->uuid]);
+
+            return ['cancelled' => $e->refresh(), 'promoted' => $promoted];
+        });
+    }
+
+    private function promoteWaitlist(int $sessionId): ?Enrolment
+    {
+        $s = Session::whereKey($sessionId)->lockForUpdate()->first();
+        if (! $s || $s->status !== 'scheduled') return null;
+        $count = Enrolment::where('session_id', $s->id)->whereIn('status', ['enrolled', 'in_progress'])->lockForUpdate()->count();
+        if ($s->capacity && $count >= $s->capacity) return null;
+        $next = Enrolment::where('session_id', $s->id)->where('status', 'waitlisted')->orderBy('waitlisted_at')->orderBy('id')->lockForUpdate()->first();
+        if (! $next) return null;
+        $next->update(['status' => 'enrolled', 'waitlisted_at' => null, 'decision_note' => 'Promoted from waitlist.']);
+        if ($uid = $this->access->userIdOf($next->employee_id)) app(NotificationService::class)->send($uid, 'Waitlist seat available', 'You were moved from the waitlist into session '.$s->code.'.', 'learning', '/learning/my');
+        Audit::record('enrolment.waitlist_promoted', 'learning', 'enrolment:'.$next->uuid, ['session' => $s->uuid]);
+
+        return $next;
+    }
+
     private function manageable(User $actor, Enrolment $e): Employee
     {
         $emp = Employee::findOrFail($e->employee_id);

@@ -30,6 +30,8 @@ Route::prefix('v1/learning')->middleware('module:learning')->group(function () {
     Route::post('enrolments/{uuid}/decision', [Ops::class, 'decide'])->middleware('permission:learning.enrol.approve');
     Route::post('enrolments/{uuid}/attendance', [Ops::class, 'attendance'])->middleware('permission:learning.enrol.manage');
     Route::post('enrolments/{uuid}/complete', [Ops::class, 'complete'])->middleware('permission:learning.enrol.manage');
+    Route::post('enrolments/{uuid}/cancel', [Ops::class, 'cancelEnrolment'])->middleware('permission:learning.self|learning.enrol.manage');
+    Route::post('sessions/{uuid}/cancel', [Ops::class, 'cancelSession'])->middleware('permission:learning.catalog.manage');
 
     Route::get('compliance/rules', [Ops::class, 'rules'])->middleware('permission:learning.assign.manage|learning.view');
     Route::post('compliance/rules', [Ops::class, 'createRule'])->middleware('permission:learning.assign.manage');

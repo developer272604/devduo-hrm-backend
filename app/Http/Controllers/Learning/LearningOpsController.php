@@ -91,6 +91,21 @@ final class LearningOpsController
         return $this->enrol->present($this->enrol->complete($r->user(), Enrolment::where('uuid', $uuid)->firstOrFail(), isset($d['score']) ? (string) $d['score'] : null, $d['passed'] ?? true));
     }
 
+    public function cancelEnrolment(Request $r, string $uuid)
+    {
+        $d = $r->validate(['note' => 'nullable|string|max:500']);
+        $result = $this->enrol->cancel($r->user(), Enrolment::where('uuid', $uuid)->firstOrFail(), $d['note'] ?? null);
+
+        return ['cancelled' => $this->enrol->present($result['cancelled']), 'promoted' => $result['promoted'] ? $this->enrol->present($result['promoted']) : null];
+    }
+
+    public function cancelSession(Request $r, string $uuid)
+    {
+        $session = $this->catalog->cancelSession($r->user(), Session::where('uuid', $uuid)->firstOrFail());
+
+        return ['uuid' => $session->uuid, 'status' => $session->status];
+    }
+
     // ---- Compliance ----------------------------------------------------------------------------------------------------------------
 
     public function rules()
