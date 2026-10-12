@@ -115,8 +115,9 @@ final class AnalyticsOpsController
 
     private function scheduleRow(Schedule $s, ?Report $report, $names, bool $withDeliveries = false): array
     {
+        $utc = fn (string $field) => $s->getRawOriginal($field) ? CarbonImmutable::parse((string) $s->getRawOriginal($field), 'UTC')->toIso8601String() : null;
         $row = ['uuid' => $s->uuid, 'report' => $report ? ['uuid' => $report->uuid, 'name' => $report->name] : null, 'frequency' => $s->frequency, 'day_of_week' => $s->day_of_week, 'day_of_month' => $s->day_of_month,
-            'time_of_day' => $s->time_of_day, 'timezone' => \App\Domain\Tenancy\TenantClock::timezone(), 'channels' => $s->channels, 'active' => $s->active, 'next_run_at' => $s->next_run_at?->toIso8601String(), 'last_run_at' => $s->last_run_at?->toIso8601String(),
+            'time_of_day' => $s->time_of_day, 'timezone' => \App\Domain\Tenancy\TenantClock::timezone(), 'channels' => $s->channels, 'active' => $s->active, 'next_run_at' => $utc('next_run_at'), 'last_run_at' => $utc('last_run_at'),
             'recipients' => collect($s->recipient_ids)->map(fn ($id) => ['id' => $id, 'name' => $names[$id] ?? 'Unknown'])->all()];
         if ($withDeliveries) {
             $row['deliveries'] = Delivery::query()->where('schedule_id', $s->id)->latest('id')->limit(20)->get()

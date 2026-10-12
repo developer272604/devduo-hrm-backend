@@ -88,7 +88,7 @@ final class ReportDelivery
                 continue;
             }
             $stats['processed']++;
-            $slot = $fresh->next_run_at->utc()->format('Y-m-d\TH:i');
+            $slot = CarbonImmutable::parse((string) $fresh->getRawOriginal('next_run_at'), 'UTC')->format('Y-m-d\TH:i');
             foreach ($this->process($fresh, $slot) as $status) {
                 $status === 'sent' ? $stats['sent']++ : $stats['skipped']++;
             }

@@ -37,6 +37,19 @@ class AnalyticsDeliveryTest extends PerformanceTestCase
         $this->context($this->admin->tenant_id);
     }
 
+    private function revokeUserPermission(int $userId, string $permission): void
+    {
+        $user = \App\Models\User::findOrFail($userId);
+        $roleIds = DB::table('role_user')->where('user_id', $userId)->pluck('role_id');
+        $permissionId = DB::table('permissions')->where('key', $permission)->value('id');
+        $newRole = DB::table('roles')->insertGetId(['tenant_id' => $user->tenant_id, 'name' => 'Restricted '.uniqid(), 'description' => 'Test-only restricted role', 'system' => false, 'data_scope' => 'tenant', 'created_at' => now(), 'updated_at' => now()]);
+        foreach (DB::table('permission_role')->whereIn('role_id', $roleIds)->where('permission_id', '!=', $permissionId)->distinct()->pluck('permission_id') as $id) {
+            DB::table('permission_role')->insert(['role_id' => $newRole, 'permission_id' => $id]);
+        }
+        DB::table('role_user')->where('user_id', $userId)->delete();
+        DB::table('role_user')->insert(['role_id' => $newRole, 'user_id' => $userId]);
+    }
+
     public function test_next_run_uses_tenant_timezone_and_is_dst_safe(): void
     {
         $after = CarbonImmutable::parse('2026-10-07 04:30:00', 'UTC');
@@ -51,7 +64,7 @@ class AnalyticsDeliveryTest extends PerformanceTestCase
     public function test_delivery_is_idempotent_records_attempts_and_notifies_in_app(): void
     {
         $s = $this->schedule(['channels' => ['in_app', 'email']]);
-        $this->assertSame('2026-10-08T02:30:00+00:00', $s['next_run_at']);
+        $this->assertSame('2026-10-08T02:30:00+00:00', CarbonImmutable::parse($s['next_run_at'])->utc()->toIso8601String());
         $this->runDelivery('2026-10-08 03:00:00');
         $this->assertSame(2, DB::table('analytics_deliveries')->where('channel', 'in_app')->where('status', 'sent')->count());
         $this->assertSame(2, InAppNotification::where('category', 'analytics.report')->count());
@@ -73,8 +86,7 @@ class AnalyticsDeliveryTest extends PerformanceTestCase
         // Creation refuses a recipient without the permission.
         $this->postJson(self::A.'schedules', ['report_uuid' => $s['report']['uuid'], 'frequency' => 'daily', 'time_of_day' => '08:00', 'recipient_ids' => [$this->userOf($this->emp1)->id]])->assertUnprocessable();
         // The checker loses analytics access before the send.
-        $permission = DB::table('permissions')->where('key', 'analytics.view')->value('id');
-        DB::table('permission_role')->whereIn('role_id', $this->checker->roles()->pluck('roles.id'))->where('permission_id', $permission)->delete();
+        $this->revokeUserPermission($this->checker->id, 'analytics.view');
         $this->runDelivery('2026-10-08 03:00:00');
         $status = DB::table('analytics_deliveries')->pluck('status', 'recipient_id');
         $this->assertSame('sent', $status[$this->admin->id]);
@@ -92,8 +104,7 @@ class AnalyticsDeliveryTest extends PerformanceTestCase
     public function test_owner_losing_export_permission_stops_delivery(): void
     {
         $this->schedule(['recipient_ids' => [$this->admin->id]]);
-        $permission = DB::table('permissions')->where('key', 'analytics.dashboards.manage')->value('id');
-        DB::table('permission_role')->whereIn('role_id', $this->admin->roles()->pluck('roles.id'))->where('permission_id', $permission)->delete();
+        $this->revokeUserPermission($this->admin->id, 'analytics.dashboards.manage');
         $this->runDelivery('2026-10-08 03:00:00');
         $this->assertSame('skipped_permission', DB::table('analytics_deliveries')->value('status'));
         $this->assertSame(0, InAppNotification::where('category', 'analytics.report')->count());
