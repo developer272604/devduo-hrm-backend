@@ -37,6 +37,13 @@ final class RecruitmentDocumentController
         return response()->noContent();
     }
 
+    public function reviewResume(Request $r, string $uuid, int $version, ResumeService $svc)
+    {
+        $data = $r->validate(['status' => 'required|in:available,rejected']);
+
+        return $svc->present($svc->review($r->user(), $uuid, $version, $data['status']));
+    }
+
     // ---- offer templates -------------------------------------------------------------------------------------------------------------
     public function templates()
     {

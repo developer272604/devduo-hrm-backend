@@ -36,6 +36,19 @@ final class ResumeService
     public function upload(User $actor, string $candidateUuid, UploadedFile $file): Resume
     {
         $candidate = $this->candidate($actor, $candidateUuid, 'recruitment.manage');
+
+        return $this->store($candidate, $file, $actor);
+    }
+
+    public function uploadFromPortal(Candidate $candidate, UploadedFile $file): Resume
+    {
+        abort_if($candidate->anonymized_at || $candidate->retention_until < now('UTC')->toDateString(), 409, 'Applicant data is no longer available.');
+
+        return $this->store($candidate, $file, null);
+    }
+
+    private function store(Candidate $candidate, UploadedFile $file, ?User $actor): Resume
+    {
         abort_if($candidate->anonymized_at, 409, 'Applicant data was anonymized; files cannot be added.');
         if ($file->isValid() && (int) $file->getSize() > self::MAX_BYTES) {
             throw ValidationException::withMessages(['file' => ['The resume is larger than 5 MB.']]);
@@ -53,8 +66,13 @@ final class ResumeService
                 abort_if($locked->anonymized_at, 409, 'Applicant data was anonymized; files cannot be added.');
                 abort_if(Resume::where('candidate_id', $locked->id)->count() >= self::MAX_VERSIONS, 409, 'The maximum number of resume versions was reached.');
                 $resume = Resume::create(['candidate_id' => $locked->id, 'version' => (Resume::where('candidate_id', $locked->id)->max('version') ?? 0) + 1, 'disk' => self::DISK, 'path' => $stored,
-                    'original_name' => $facts['name'], 'mime' => $facts['mime'], 'size' => $facts['size'], 'sha256' => $facts['sha256'], 'uploaded_by' => $actor->id]);
-                Audit::record('resume.uploaded', 'recruitment', $locked->uuid, ['version' => $resume->version, 'size' => $facts['size'], 'mime' => $facts['mime']]);
+                    'original_name' => $facts['name'], 'mime' => $facts['mime'], 'size' => $facts['size'], 'sha256' => $facts['sha256'], 'uploaded_by' => $actor?->id,
+                    'uploaded_source' => $actor ? 'recruiter' : 'candidate_portal', 'review_status' => $actor ? 'available' : 'pending_review']);
+                if ($actor) {
+                    Audit::record('resume.uploaded', 'recruitment', $locked->uuid, ['version' => $resume->version, 'size' => $facts['size'], 'mime' => $facts['mime']]);
+                } else {
+                    \App\Domain\Audit\AuditChain::append(['user_id' => null, 'actor' => 'Candidate', 'action' => 'resume.candidate_uploaded', 'module' => 'recruitment', 'resource' => $locked->uuid, 'ip_address' => request()->ip(), 'context' => ['version' => $resume->version, 'size' => $facts['size'], 'mime' => $facts['mime']]]);
+                }
 
                 return $resume;
             });
@@ -92,6 +110,18 @@ final class ResumeService
         Audit::record('resume.removed', 'recruitment', $candidate->uuid, ['version' => $version]);
     }
 
+    public function review(User $actor, string $candidateUuid, int $version, string $status): Resume
+    {
+        $candidate = $this->candidate($actor, $candidateUuid, 'recruitment.manage');
+        $resume = Resume::where('candidate_id', $candidate->id)->where('version', $version)->firstOrFail();
+        abort_if($resume->purged_at, 404, 'This file is no longer available.');
+        abort_unless(in_array($status, ['available', 'rejected'], true), 422, 'Choose a valid review status.');
+        $resume->update(['review_status' => $status, 'reviewed_by' => $actor->id, 'reviewed_at' => now()]);
+        Audit::record('resume.reviewed', 'recruitment', $candidate->uuid, ['version' => $version, 'status' => $status]);
+
+        return $resume->refresh();
+    }
+
     /** Deletes the stored file and blanks identifying metadata. Idempotent. */
     public function purge(Resume $resume): bool
     {
@@ -119,7 +149,7 @@ final class ResumeService
     public function present(Resume $r): array
     {
         return ['version' => $r->version, 'original_name' => $r->purged_at ? null : FileInspector::displayName($r->original_name), 'mime' => $r->mime, 'size' => (int) $r->size, 'sha256' => $r->sha256,
-            'uploaded_at' => $r->created_at?->toIso8601String(), 'available' => ! $r->purged_at];
+            'uploaded_at' => $r->created_at?->toIso8601String(), 'available' => ! $r->purged_at, 'source' => $r->uploaded_source ?? 'recruiter', 'review_status' => $r->review_status ?? 'available'];
     }
 
     /** Anonymized candidates always; expired ones unless hired (hired applicants are retained through the employee record, like anonymization). */

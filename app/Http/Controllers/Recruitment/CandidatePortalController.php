@@ -12,6 +12,7 @@ use App\Domain\Recruitment\Models\Offer;
 use App\Domain\Recruitment\Models\PortalChallenge;
 use App\Domain\Recruitment\OfferService;
 use App\Domain\Recruitment\RecruitmentNotify;
+use App\Domain\Recruitment\ResumeService;
 use App\Domain\Tenancy\TenantRunner;
 use App\Domain\Work\TaskService;
 use App\Jobs\SendCandidatePortalCode;
@@ -111,7 +112,8 @@ final class CandidatePortalController
                 if (!$release || !$release->content) return null;
                 return ['uuid' => $offer->uuid, 'job_title' => $offer->job_title, 'status' => $offer->status, 'release_uuid' => $release->uuid, 'release_version' => $release->version, 'content' => $release->content, 'can_respond' => $offer->status === 'sent' && $offer->application->status === 'active' && (!$offer->expires_on || $offer->expires_on->toDateString() >= now('UTC')->toDateString())];
             })->filter()->values();
-            return response()->json(['name' => $candidate->name, 'applications' => $applications, 'offers' => $offers])->header('Cache-Control', 'no-store');
+            $resumes = \App\Domain\Recruitment\Models\Resume::where('candidate_id', $candidate->id)->orderByDesc('version')->get()->map(fn ($resume) => app(ResumeService::class)->present($resume))->values();
+            return response()->json(['name' => $candidate->name, 'applications' => $applications, 'offers' => $offers, 'resumes' => $resumes])->header('Cache-Control', 'no-store');
         });
     }
 
@@ -156,6 +158,19 @@ final class CandidatePortalController
                 AuditChain::append(['user_id' => null, 'actor' => 'Candidate', 'action' => 'offer.candidate_'.$data['decision'], 'module' => 'recruitment', 'resource' => $offer->uuid, 'ip_address' => $r->ip(), 'context' => ['candidate' => $candidate->uuid, 'release' => $release->uuid, 'version' => $release->version]]);
                 return ['status' => $offer->status];
             });
+        });
+    }
+
+    public function uploadResume(Request $r, string $workspace, ResumeService $resumes)
+    {
+        $r->validate(['file' => 'required|file']);
+
+        return $this->workspace($workspace, function ($tenant) use ($r, $resumes) {
+            $candidate = $this->sessionCandidate($r, $tenant);
+            $resume = $resumes->uploadFromPortal($candidate, $r->file('file'));
+            RecruitmentNotify::tell($candidate->created_by, 'Candidate resume uploaded', 'A candidate uploaded a resume through the verified portal.');
+
+            return response()->json($resumes->present($resume), 201)->header('Cache-Control', 'no-store');
         });
     }
 

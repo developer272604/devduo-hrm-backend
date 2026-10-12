@@ -16,6 +16,7 @@ Route::prefix('api')->group(function () {
     Route::prefix('public/v1')->group(__DIR__.'/integrations_public.php');
     Route::get('csrf', [AuthController::class, 'csrf']);
     Route::post('v1/careers/{workspace}/portal/offers/{uuid}/respond', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'respondOffer'])->middleware('throttle:10,1,portal-offer-response');
+    Route::post('v1/careers/{workspace}/portal/resumes', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'uploadResume'])->middleware('throttle:5,1,portal-resume-upload');
     Route::post('v1/careers/{workspace}/portal/applications/{uuid}/withdraw', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'withdraw'])->middleware('throttle:10,1,portal-action');
     Route::post('v1/careers/{workspace}/portal/code', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'requestCode'])->middleware('throttle:5,1,portal-code');
     Route::post('v1/careers/{workspace}/portal/verify', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'verify'])->middleware('throttle:10,1,portal-verify');

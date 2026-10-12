@@ -5,8 +5,10 @@ namespace Tests\Feature\Recruitment;
 use App\Domain\Recruitment\Models\Offer;
 use App\Mail\CandidatePortalCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CandidatePortalTest extends TestCase
@@ -17,6 +19,7 @@ class CandidatePortalTest extends TestCase
     {
         parent::setUp();
         $this->setUpRecruitment();
+        Storage::fake('hrm_private');
         config(['recruitment.candidate_portal_enabled' => true]);
         config(['queue.default' => 'sync']);
         Mail::fake();
@@ -27,6 +30,11 @@ class CandidatePortalTest extends TestCase
         $this->postJson('/api/v1/careers/alpha/portal/code', ['email' => 'asha@example.test'])->assertStatus(202)->assertJsonMissingPath('code');
 
         return Mail::sent(CandidatePortalCode::class)->last()->code;
+    }
+
+    private function pdf(string $body = 'portal'): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent('candidate-cv.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\n% $body\ntrailer<<>>\n%%EOF\n");
     }
 
     public function test_verified_candidate_session_has_only_own_public_status_and_code_is_single_use(): void
@@ -142,5 +150,29 @@ class CandidatePortalTest extends TestCase
         $this->context($this->admin->tenant_id);
         app(\App\Domain\Recruitment\OfferDocumentService::class)->purgeForCandidate(\App\Domain\Recruitment\Models\Candidate::where('uuid', $candidate)->firstOrFail());
         $this->getJson('/api/v1/careers/alpha/portal')->assertJsonCount(0, 'offers');
+    }
+
+    public function test_verified_candidate_uploads_resume_for_recruiter_review(): void
+    {
+        $candidate = $this->candidate();
+        $this->apply($this->requisition(), $candidate);
+        $code = $this->requestCode();
+        $this->postJson('/api/v1/careers/alpha/portal/verify', ['email' => 'asha@example.test', 'code' => $code])->assertOk();
+
+        $this->post('/api/v1/careers/alpha/portal/resumes', ['file' => $this->pdf()], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('version', 1)
+            ->assertJsonPath('source', 'candidate_portal')
+            ->assertJsonPath('review_status', 'pending_review');
+
+        $this->getJson('/api/v1/careers/alpha/portal')->assertOk()->assertJsonPath('resumes.0.review_status', 'pending_review');
+        $this->assertDatabaseHas('recruitment_resumes', ['uploaded_by' => null, 'uploaded_source' => 'candidate_portal', 'review_status' => 'pending_review']);
+        $this->assertSame(1, DB::table('audit_logs')->where('action', 'resume.candidate_uploaded')->count());
+
+        $this->signIn($this->admin)
+            ->postJson('/api/v1/recruitment/candidates/'.$candidate.'/resumes/1/review', ['status' => 'available'])
+            ->assertOk()
+            ->assertJsonPath('review_status', 'available');
+        $this->assertDatabaseHas('recruitment_resumes', ['uploaded_source' => 'candidate_portal', 'review_status' => 'available', 'reviewed_by' => $this->admin->id]);
     }
 }

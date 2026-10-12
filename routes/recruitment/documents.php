@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('candidates/{uuid}/resumes', [Docs::class, 'resumes'])->middleware('permission:recruitment.view');
 Route::post('candidates/{uuid}/resumes', [Docs::class, 'uploadResume'])->middleware('permission:recruitment.manage');
 Route::get('candidates/{uuid}/resumes/{version}/download', [Docs::class, 'downloadResume'])->whereNumber('version')->middleware('permission:recruitment.view');
+Route::post('candidates/{uuid}/resumes/{version}/review', [Docs::class, 'reviewResume'])->whereNumber('version')->middleware('permission:recruitment.manage');
 Route::delete('candidates/{uuid}/resumes/{version}', [Docs::class, 'removeResume'])->whereNumber('version')->middleware('permission:recruitment.manage');
 Route::get('offer-templates', [Docs::class, 'templates'])->middleware('permission:recruitment.offer.manage');
 Route::post('offer-templates', [Docs::class, 'createTemplate'])->middleware('permission:recruitment.offer.manage');
