@@ -46,7 +46,7 @@ trait SecurityFixtures
         return $this->signIn($u);
     }
 
-    protected function userWithRole(string $role, string $email, int $tenantId = null): User
+    protected function userWithRole(string $role, string $email, ?int $tenantId = null): User
     {
         $tenantId ??= $this->admin->tenant_id;
         $this->context($tenantId);

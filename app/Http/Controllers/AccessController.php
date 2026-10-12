@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Audit\Audit;
+use App\Domain\Security\PasswordPolicy;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -10,7 +11,6 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class AccessController extends Controller
 {
@@ -27,7 +27,7 @@ class AccessController extends Controller
     public function saveUser(Request $r, ?int $id = null)
     {
         $u = $id ? User::where('tenant_id', $r->user()->tenant_id)->findOrFail($id) : new User;
-        $data = $r->validate(['name' => 'required|string|max:150', 'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($id)], 'active' => 'required|boolean', 'password' => $id ? ['prohibited'] : ['required', Password::min(12)->letters()->numbers()],
+        $data = $r->validate(['name' => 'required|string|max:150', 'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($id)], 'active' => 'required|boolean', 'password' => $id ? ['prohibited'] : ['required', app(PasswordPolicy::class)->rule($r->user()->tenant_id)],
             'role_ids' => 'required|array|min:1', 'role_ids.*' => ['integer', Rule::exists('roles', 'id')->where('tenant_id', $r->user()->tenant_id)]]);
 
         return DB::transaction(function () use ($r, $u, $data, $id) {
@@ -41,6 +41,9 @@ class AccessController extends Controller
             $u->fill(collect($data)->except('role_ids')->all());
             $u->email = strtolower($u->email);
             $u->tenant_id = $r->user()->tenant_id;
+            if (! $id) {
+                $u->password_changed_at = now();
+            }
             $u->save();
             $u->roles()->sync($data['role_ids']);
             Audit::record($id ? 'updated' : 'created', 'access', 'user:'.$u->id);

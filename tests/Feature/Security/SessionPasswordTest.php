@@ -156,6 +156,20 @@ class SessionPasswordTest extends TestCase
         $this->assertSame(2, PasswordHistory::where('user_id', $this->admin->id)->count());
     }
 
+    public function test_admin_created_users_follow_tenant_password_policy(): void
+    {
+        $this->policy($this->admin, ['password' => ['min_length' => 18]]);
+        $this->signIn($this->admin);
+        $this->context($this->admin->tenant_id);
+        $role = \App\Models\Role::where('name', 'Team member')->firstOrFail();
+        $this->context(null);
+        $payload = ['name' => 'Policy User', 'email' => 'policy.user@alpha.test', 'active' => true, 'role_ids' => [$role->id]];
+
+        $this->postJson('/api/users', $payload + ['password' => 'ShortPassword123'])->assertUnprocessable()->assertJsonValidationErrors('password');
+        $created = $this->postJson('/api/users', $payload + ['password' => 'LongEnoughPassword123'])->assertCreated()->json();
+        $this->assertNotNull(User::findOrFail($created['id'])->password_changed_at);
+    }
+
     public function test_password_history_is_enforced_on_reset(): void
     {
         $this->policy($this->admin, ['password' => ['history' => 3]]);
