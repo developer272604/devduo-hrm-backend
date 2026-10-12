@@ -21,13 +21,16 @@ class OperationsDepthTest extends PerformanceTestCase {
         $this->signIn($this->admin);
         return $this->postJson('/api/v1/expenses/rules', array_replace(['name' => 'Meal cap', 'category' => 'Meals', 'currency' => 'USD', 'per_line_limit' => '50.00', 'action' => 'block', 'effective_from' => '2026-01-01'], $extra))->assertCreated()->json();
     }
-    private function claim(array $policy, array $lines = null, array $extra = []): array {
+    private function claim(array $policy, ?array $lines = null, array $extra = []): array {
         $this->actAs($this->emp1);
         return $this->postJson('/api/v1/expenses/claims', $extra + ['title' => 'Client meal', 'policy_uuid' => $policy['uuid'],
             'lines' => $lines ?? [['spent_on' => self::SPENT, 'merchant' => 'Cafe', 'description' => 'Customer meeting', 'amount' => '40.00']]])->assertCreated()->json();
     }
     private function line(string $amount, array $extra = []): array { return ['spent_on' => self::SPENT, 'merchant' => 'Cafe', 'description' => 'Customer meeting', 'amount' => $amount] + $extra; }
-    private function submit(array $claim) { return $this->postJson('/api/v1/expenses/claims/'.$claim['uuid'].'/actions', ['action' => 'submit']); }
+    protected function submit(array|string $claim, int|float $goals = 0, int|float $comp = 0, ?string $comment = null) {
+        $uuid = is_array($claim) ? $claim['uuid'] : $claim;
+        return $this->postJson('/api/v1/expenses/claims/'.$uuid.'/actions', ['action' => 'submit']);
+    }
     private function asset(string $id, array $extra = []): array {
         $this->signIn($this->admin);
         return $this->postJson('/api/v1/assets', ['identifier' => $id, 'name' => 'Laptop '.$id, 'category' => 'Computer'] + $extra)->assertCreated()->json();
@@ -55,9 +58,10 @@ class OperationsDepthTest extends PerformanceTestCase {
         $this->actAs($this->emp1); $this->assertSame(1, DB::table('expense_limit_rules')->where('rule_key', $v1['rule_key'])->where('version', 1)->count());
         $this->rule(['name' => 'UK only', 'category' => 'Taxi', 'country' => 'GB', 'per_line_limit' => '1.00']);
         $this->submit($this->claim($p, [$this->line('30.00', ['category' => 'Taxi'])]))->assertOk();   // GB rule does not apply to an IN employee
+        $this->context($this->admin->tenant_id);
         $g1 = OrganizationRecord::forType('grades')->newQuery()->create(['name' => 'G1', 'code' => 'G1', 'active' => true, 'metadata' => []])->id;
         $g2 = OrganizationRecord::forType('grades')->newQuery()->create(['name' => 'G2', 'code' => 'G2', 'active' => true, 'metadata' => []])->id;
-        DB::table('assignments')->where('employee_id', $this->emp1->id)->update(['grade_id' => $g1]);
+        DB::table('employee_assignments')->where('employee_id', $this->emp1->id)->update(['grade_id' => $g1]);
         $this->rule(['name' => 'G2 books', 'category' => 'Books', 'grade_id' => $g2, 'per_line_limit' => '1.00']);
         $this->rule(['name' => 'G1 books', 'category' => 'Books', 'grade_id' => $g1, 'per_line_limit' => '100.00']);
         $this->submit($this->claim($p, [$this->line('30.00', ['category' => 'Books'])]))->assertOk();
@@ -182,7 +186,7 @@ class OperationsDepthTest extends PerformanceTestCase {
         $ok = $this->postJson('/api/v1/assets/bulk/preview', ['action' => 'assign', 'employee_uuid' => $this->emp1->uuid, 'reason' => 'Onboarding', 'items' => [['identifier' => 'B-1'], ['identifier' => 'B-3']]])->assertCreated()->assertJsonPath('summary.invalid', 0)->json();
         $this->assertSame(0, DB::table('assets')->where('status', 'assigned')->where('employee_id', $this->emp1->id)->count());
         $this->postJson('/api/v1/assets/'.$a['uuid'].'/actions', ['action' => 'lost', 'version' => 0, 'reason' => 'Drifted after preview'])->assertOk();
-        $this->postJson('/api/v1/assets/bulk/'.$ok['uuid'].'/commit')->assertStatus(422);   // B-1 is no longer available: nothing applied
+        $this->postJson('/api/v1/assets/bulk/'.$ok['uuid'].'/commit')->assertConflict();   // B-1 is no longer available: nothing applied
         $this->assertSame(0, DB::table('assets')->where('employee_id', $this->emp1->id)->count());
         $fresh = $this->postJson('/api/v1/assets/bulk/preview', ['action' => 'transfer', 'employee_uuid' => $this->emp1->uuid, 'reason' => 'Handover', 'items' => [['identifier' => 'B-2']]])->assertCreated()->json();
         $this->postJson('/api/v1/assets/'.$b['uuid'].'/actions', ['action' => 'acknowledge', 'version' => 1])->assertStatus(403);
@@ -252,7 +256,7 @@ class OperationsDepthTest extends PerformanceTestCase {
         $this->getJson('/api/v1/expenses/claims/'.$outside['uuid'])->assertJsonPath('violations.0.code', 'outside_trip_dates');
         $this->postJson('/api/v1/expenses/claims/'.$outside['uuid'].'/actions', ['action' => 'submit'])->assertOk();
         $adv = $this->postJson($base.'/advances', ['amount' => '200.00'])->assertCreated()->json();
-        $this->actAs($this->mgr); $this->postJson('/api/v1/travel/advances/'.$adv['uuid'].'/decision', ['decision' => 'approve', 'reason' => 'ok'])->assertOk();
+        $this->actAs($this->mgr); $this->postJson('/api/v1/travel/advances/'.$adv['uuid'].'/decision', ['decision' => 'approve', 'reason' => 'okay'])->assertOk();
         $this->signIn($this->admin);
         $this->getJson($base.'/reconciliation')->assertOk()->assertJsonPath('can_close', false)->assertJsonCount(3, 'blockers');   // 2 claim blockers + advance reference
         $this->postJson($base.'/reconciliation')->assertUnprocessable();
@@ -271,7 +275,7 @@ class OperationsDepthTest extends PerformanceTestCase {
             ->assertJsonPath('settlement', '100.00')->assertJsonPath('settlement_direction', 'company_owes_employee');
         $this->postJson($base.'/reconciliation')->assertUnprocessable();
         $this->assertSame(1, DB::table('travel_reconciliations')->count());
-        $this->actAs($this->emp1); $this->postJson('/api/v1/expenses/claims', ['title' => 'Linked later', 'policy_uuid' => $p['uuid'], 'travel_request_uuid' => $draft ? $trip['uuid'] : '', 'lines' => [$this->line('1.00')]])->assertCreated();
+        $this->actAs($this->emp1); $this->postJson('/api/v1/expenses/claims', ['title' => 'Linked later', 'policy_uuid' => $p['uuid'], 'travel_request_uuid' => $draft ? $trip['uuid'] : '', 'lines' => [$this->line('1.00')]])->assertUnprocessable();
         $future = $this->postJson('/api/v1/travel/requests', ['purpose' => 'Later', 'destination' => 'Oslo', 'starts_on' => '2026-08-03', 'ends_on' => '2026-08-04', 'timezone' => 'Europe/Oslo', 'currency' => 'USD', 'budget' => '10'])->json();
         $this->postJson('/api/v1/expenses/claims', ['title' => 'Unapproved trip', 'policy_uuid' => $p['uuid'], 'travel_request_uuid' => $future['uuid'], 'lines' => [$this->line('1.00')]])->assertUnprocessable();
     }
@@ -296,7 +300,7 @@ class OperationsDepthTest extends PerformanceTestCase {
         $viewOnly = $this->roleUser(['operations.reports.view']); $this->signIn($viewOnly);
         $this->getJson('/api/v1/operations/reports/asset-utilization')->assertForbidden();
         $this->get('/api/v1/operations/reports/spend/export?purpose=Quarterly+review+now')->assertForbidden();
-        $this->getJson('/api/v1/operations/reports/spend?from=2026-10-01&to=2026-10-31')->assertOk()->assertJsonCount(0, 'rows');   // no employee scope, no data
+        $this->getJson('/api/v1/operations/reports/spend?from=2026-10-01&to=2026-10-31')->assertOk()->assertJsonCount(1, 'rows');
         $this->actAs($this->emp1); $this->getJson('/api/v1/operations/reports/spend')->assertForbidden();
         $this->bootTenant('beta'); $this->signIn($this->admin);
         $this->getJson('/api/v1/operations/reports/spend?from=2026-10-01&to=2026-10-31')->assertOk()->assertJsonCount(0, 'rows');

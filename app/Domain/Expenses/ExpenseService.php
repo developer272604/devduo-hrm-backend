@@ -4,7 +4,7 @@ use App\Domain\Expenses\Models\{ExpensePolicy, ExpenseClaim, ExpenseLine, Expens
 use App\Domain\Operations\{Money, RequestAccess};
 use App\Domain\People\Models\Employee;
 use App\Domain\Tenancy\{TenantClock, TenantContext};
-use App\Domain\Travel\Models\TravelRequest;
+use App\Domain\Travel\Models\{TravelReconciliation, TravelRequest};
 use App\Domain\Audit\Audit;
 use App\Models\User;
 use Illuminate\Support\Facades\{DB, Storage};
@@ -94,6 +94,7 @@ final class ExpenseService {
         if (! empty($data['travel_request_uuid'])) {
             $trip = TravelRequest::where('uuid', $data['travel_request_uuid'])->where('employee_id', $employeeId)->firstOrFail();
             if ($trip->status !== 'approved') $this->invalid('Expenses can only be linked to an approved trip.');
+            if (TravelReconciliation::where('travel_request_id', $trip->id)->exists()) $this->invalid('This trip has already been reconciled.');
         }
         [$rows, $total] = $this->prepare($p, $ctx, $data['lines'], null);
         return DB::transaction(function () use ($user, $employeeId, $data, $p, $total, $rows, $ctx, $trip) {
