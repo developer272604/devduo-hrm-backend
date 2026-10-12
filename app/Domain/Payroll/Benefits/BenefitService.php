@@ -4,6 +4,7 @@ namespace App\Domain\Payroll\Benefits;
 
 use App\Domain\Access\DataScope;
 use App\Domain\Audit\Audit;
+use App\Domain\Payroll\Contracts\FormulaEvaluator;
 use App\Domain\Payroll\Models\BenefitEnrollmentWindow;
 use App\Domain\Payroll\Models\BenefitPlan;
 use App\Domain\Payroll\Models\EmployeeBenefitEnrollment;
@@ -17,6 +18,12 @@ use Illuminate\Validation\ValidationException;
 /** Tenant-scoped benefit plans, enrollment windows and maker-checker enrollment decisions. */
 final class BenefitService
 {
+    private const CONTRIBUTION_VARIABLES = [
+        'BASE', 'GROSS', 'GROSS_REFERENCE', 'TAXABLE_GROSS',
+        'PAYABLE_DAYS', 'WORKING_DAYS', 'PERIOD_DAYS', 'LOP_DAYS',
+        'COVERED_DAYS', 'COVERED_PERIOD_DAYS', 'PRORATION_FACTOR',
+    ];
+
     public function plans(): array
     {
         return BenefitPlan::query()->with('enrollmentWindows')->latest('id')->get()->map(fn ($p) => $this->presentPlan($p))->all();
@@ -25,6 +32,8 @@ final class BenefitService
     public function createPlan(User $actor, array $data): BenefitPlan
     {
         abort_unless($actor->allows('payroll.benefits.manage'), 403);
+        $data['contributions'] = $this->normalizeContributions($data['contributions'] ?? []);
+        $this->validateContributions($data['contributions'] ?? []);
         $plan = BenefitPlan::create($data + ['status' => 'draft']);
         Audit::record('payroll.benefit_plan.created', 'payroll', $plan->uuid);
 
@@ -81,6 +90,8 @@ final class BenefitService
                     throw ValidationException::withMessages([$field => 'Enter a non-negative decimal amount.']);
                 }
             }
+            $contributions = $this->normalizeContributions($contributions);
+            $this->validateContributions($contributions);
             $dependentUuids = array_values(array_unique($data['dependents'] ?? []));
             if ($dependentUuids && DB::table('employee_dependents')->where('person_id', $employee->person_id)->where('status', 'active')->whereIn('uuid', $dependentUuids)->count() !== count($dependentUuids)) {
                 throw ValidationException::withMessages(['dependents' => 'Select only active dependents on your employee profile.']);
@@ -176,5 +187,34 @@ final class BenefitService
             'eligibility' => $p->eligibility, 'contributions' => $p->contributions, 'tax_treatment' => $p->tax_treatment, 'component_code' => $p->component_code,
             'effective_from' => substr((string) $p->effective_from, 0, 10), 'effective_to' => $p->effective_to ? substr((string) $p->effective_to, 0, 10) : null, 'status' => $p->status,
             'windows' => $p->enrollmentWindows->map(fn ($w) => ['uuid' => $w->uuid, 'name' => $w->name, 'opens_on' => substr((string) $w->opens_on, 0, 10), 'closes_on' => substr((string) $w->closes_on, 0, 10), 'effective_on' => substr((string) $w->effective_on, 0, 10)])->all()];
+    }
+
+    private function validateContributions(array $contributions): void
+    {
+        $messages = [];
+        foreach (['employee_formula', 'employer_formula'] as $field) {
+            $formula = trim((string) ($contributions[$field] ?? ''));
+            if ($formula === '') {
+                continue;
+            }
+            $errors = app(FormulaEvaluator::class)->validate($formula, self::CONTRIBUTION_VARIABLES);
+            if ($errors) {
+                $messages['contributions.'.$field] = $errors[0];
+            }
+        }
+        if ($messages) {
+            throw ValidationException::withMessages($messages);
+        }
+    }
+
+    private function normalizeContributions(array $contributions): array
+    {
+        foreach (['employee_formula', 'employer_formula'] as $field) {
+            if (isset($contributions[$field]) && trim((string) $contributions[$field]) !== '') {
+                $contributions[$field] = strtoupper(trim((string) $contributions[$field]));
+            }
+        }
+
+        return $contributions;
     }
 }

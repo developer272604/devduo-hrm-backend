@@ -91,13 +91,13 @@ class EndToEndPayrollTest extends TestCase
             $this->as($checker, 'POST', "compensation/compensations/$c/decision", ['decision' => 'approved'], [], 200);
         }
 
-        // Fixed benefit contributions flow into the calculation with effective-date proration.
+        // Formula benefit contributions flow into the calculation with explicit proration variables.
         $benefitPlan = $this->as($admin, 'POST', 'benefits/plans', ['code' => 'HEALTH_CORE', 'name' => 'Health Plan', 'category' => 'insurance', 'currency' => 'INR',
-            'effective_from' => '2026-01-01', 'component_code' => 'HEALTH', 'contributions' => ['employee_fixed' => '300.00', 'employer_fixed' => '600.00']], [], 201)->json('uuid');
+            'effective_from' => '2026-01-01', 'component_code' => 'HEALTH', 'contributions' => ['employee_formula' => 'BASE * 1% * PRORATION_FACTOR', 'employer_formula' => 'GROSS_REFERENCE * 2% * PRORATION_FACTOR']], [], 201)->json('uuid');
         $this->as($admin, 'POST', "benefits/plans/$benefitPlan/activate", [], [], 200);
         $plan = BenefitPlan::where('uuid', $benefitPlan)->firstOrFail();
         EmployeeBenefitEnrollment::create(['employee_id' => $asha->id, 'plan_id' => $plan->id, 'status' => 'active', 'effective_from' => '2026-09-16',
-            'employee_contribution' => '300.00', 'employer_contribution' => '600.00', 'created_by' => $admin->id]);
+            'employee_contribution' => '0', 'employer_contribution' => '0', 'created_by' => $admin->id]);
         $resolved = app(CompensationResolver::class)->current($asha->id, '2026-09-30');
         $this->assertSame('70000.00', $resolved['gross_reference']);
         $this->assertNotNull(app(PackResolver::class)->forGroup(DB::table('payroll_groups')->where('uuid', $group)->value('id'), '2026-09-30'));
@@ -127,8 +127,8 @@ class EndToEndPayrollTest extends TestCase
         $this->assertSame('50000.0000', $codes['BASE']);
         $this->assertSame('20000.0000', $codes['HRA']);
         $this->assertSame('1000.0000', $codes['LOAN_RECOVERY'], 'loan installment feeds the run through LoanService::dueFor');
-        $this->assertSame('150.0000', $codes['HEALTH_EE'], 'employee contribution is prorated for the 15 covered days');
-        $this->assertSame('300.0000', $codes['HEALTH_ER'], 'employer contribution is prorated for the 15 covered days');
+        $this->assertSame('250.0000', $codes['HEALTH_EE'], 'employee contribution formula uses base pay and covered-period proration');
+        $this->assertSame('700.0000', $codes['HEALTH_ER'], 'employer contribution formula uses gross reference and covered-period proration');
         $this->assertSame('500.0000', $codes['TRAVEL']);
         $this->assertSame('70000.0000', $ashaResult['gross']);
         foreach (['gross', 'net'] as $field) {

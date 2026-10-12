@@ -20,6 +20,7 @@ final class BenefitController
             'provider' => 'nullable|array', 'country' => 'nullable|regex:/^[A-Z]{2}$/', 'currency' => 'nullable|regex:/^[A-Z]{3}$/', 'eligibility' => 'nullable|array', 'eligibility.worker_types' => 'nullable|array', 'eligibility.worker_types.*' => 'string|max:30',
             'eligibility.countries' => 'nullable|array', 'eligibility.countries.*' => 'regex:/^[A-Z]{2}$/', 'eligibility.legal_entity_ids' => 'nullable|array', 'eligibility.legal_entity_ids.*' => 'integer', 'eligibility.min_tenure_days' => 'nullable|integer|min:0|max:36500',
             'contributions' => 'nullable|array', 'contributions.employee_fixed' => ['nullable', 'regex:/^\d{1,12}(?:\.\d{1,4})?$/D'], 'contributions.employer_fixed' => ['nullable', 'regex:/^\d{1,12}(?:\.\d{1,4})?$/D'],
+            'contributions.employee_formula' => 'nullable|string|max:1000', 'contributions.employer_formula' => 'nullable|string|max:1000',
             'tax_treatment' => 'nullable|string|max:40', 'component_code' => 'nullable|regex:/^[A-Z][A-Z0-9_]{0,39}$/', 'effective_from' => 'required|date_format:Y-m-d', 'effective_to' => 'nullable|date_format:Y-m-d|after_or_equal:effective_from']);
 
         return response()->json($service->presentPlan($service->createPlan($request->user(), $data)), 201);

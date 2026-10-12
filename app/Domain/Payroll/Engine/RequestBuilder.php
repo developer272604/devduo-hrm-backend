@@ -74,6 +74,7 @@ final class RequestBuilder
                 ->where(fn ($q) => $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $start))
                 ->orderBy('id')->get()
                 ->map(fn ($enrollment) => [
+                    'contributions' => $enrollment->plan->contributions ?? [],
                     'enrollment_uuid' => $enrollment->uuid,
                     'plan_code' => $enrollment->plan->code,
                     'plan_name' => $enrollment->plan->name,

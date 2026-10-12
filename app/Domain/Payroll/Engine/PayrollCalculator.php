@@ -166,6 +166,9 @@ final class PayrollCalculator implements EmployeeCalculator
             }
 
             $gross = Money::sum(array_map(fn ($c) => Money::of($c['amount'], $currency), array_values(array_filter($components, fn ($c) => $c['kind'] === 'earning'))), $currency);
+            $benefitFormulaVars = ['BASE' => Decimal::str($basic, 6), 'GROSS' => Decimal::str($gross->toString($exp), 6), 'GROSS_REFERENCE' => Decimal::str($current['gross_reference'] ?? $gross->toString($exp), 6),
+                'TAXABLE_GROSS' => Decimal::str(Decimal::max($taxable->minus($preTax), 0), 6), 'PAYABLE_DAYS' => Decimal::str($days['payable_days'], 6), 'WORKING_DAYS' => Decimal::str($days['basis'], 6),
+                'PERIOD_DAYS' => Decimal::str($days['period_days'], 6), 'LOP_DAYS' => Decimal::str($days['lop_days'], 6)];
             if (! empty($request['statutory'])) {
                 $s = $request['statutory'];
                 $ctx = new StatutoryContext($s['country'], $currency, $request['period_start'], $request['period_end'], $s['tax_year'], (int) $s['periods_in_year'], (int) $s['period_index'],
@@ -199,22 +202,35 @@ final class PayrollCalculator implements EmployeeCalculator
                 $coveredDays = $this->calendarDays($from, $to);
                 $factor = Decimal::str(Decimal::div($coveredDays, $periodDays, 8), 8);
                 $baseCode = strtoupper(preg_replace('/[^A-Za-z0-9_]/', '_', $benefit['component_code'] ?: 'BENEFIT_'.$benefit['plan_code']));
+                $contributionRules = $benefit['contributions'] ?? [];
+                $vars = $benefitFormulaVars + ['COVERED_DAYS' => Decimal::str($coveredDays, 6), 'COVERED_PERIOD_DAYS' => Decimal::str($periodDays, 6), 'PRORATION_FACTOR' => Decimal::str($factor, 6)];
                 foreach ([
-                    ['field' => 'employee_contribution', 'suffix' => '_EE', 'kind' => 'employee_contribution', 'name' => 'Employee benefit contribution'],
-                    ['field' => 'employer_contribution', 'suffix' => '_ER', 'kind' => 'employer_contribution', 'name' => 'Employer benefit contribution'],
+                    ['field' => 'employee_contribution', 'formula' => 'employee_formula', 'suffix' => '_EE', 'kind' => 'employee_contribution', 'name' => 'Employee benefit contribution'],
+                    ['field' => 'employer_contribution', 'formula' => 'employer_formula', 'suffix' => '_ER', 'kind' => 'employer_contribution', 'name' => 'Employer benefit contribution'],
                 ] as $contribution) {
                     $fixed = $benefit[$contribution['field']] ?? '0';
+                    $formula = trim((string) ($contributionRules[$contribution['formula']] ?? ''));
+                    $formulaTrace = null;
+                    if ($formula !== '') {
+                        $result = $this->formulas->evaluate($formula, $vars, 6);
+                        $fixed = $result->value;
+                        $formulaTrace = $result->trace();
+                    }
+                    if (Decimal::isNegative($fixed)) {
+                        throw new CalculationFailed('negative_benefit_contribution', 'Benefit contribution formulas must return non-negative amounts.');
+                    }
                     if (Decimal::isZero($fixed)) {
                         continue;
                     }
-                    $amount = Rounding::apply(Decimal::mul($fixed, $factor), $exp, $mode);
+                    $amount = Rounding::apply($formula !== '' ? $fixed : Decimal::mul($fixed, $factor), $exp, $mode);
                     if (Decimal::isZero($amount)) {
                         continue;
                     }
                     $components[] = ['component_code' => substr($baseCode, 0, 35).$contribution['suffix'], 'name' => $contribution['name'].' - '.$benefit['plan_name'],
                         'kind' => $contribution['kind'], 'amount' => $amount, 'origin' => 'benefit', 'source_ref' => 'benefit:'.$benefit['enrollment_uuid'], 'sequence' => $seq++,
-                        'trace' => ['enrollment_uuid' => $benefit['enrollment_uuid'], 'plan_code' => $benefit['plan_code'], 'fixed_per_period' => $fixed, 'covered_from' => $from, 'covered_to' => $to,
-                            'covered_days' => $coveredDays, 'period_days' => $periodDays, 'proration_factor' => $factor]];
+                        'trace' => ['enrollment_uuid' => $benefit['enrollment_uuid'], 'plan_code' => $benefit['plan_code'], 'fixed_per_period' => $formula === '' ? $fixed : null, 'formula' => $formulaTrace,
+                            'covered_from' => $from, 'covered_to' => $to, 'covered_days' => $coveredDays, 'period_days' => $periodDays, 'proration_factor' => $factor,
+                            'formula_prorates_itself' => $formula !== '']];
                 }
             }
 

@@ -31,6 +31,8 @@ class BenefitEnrollmentTest extends TestCase
     public function test_eligible_employee_enrolls_during_window_and_independent_admin_decides(): void
     {
         $employee = $this->hire('Asha Rao', ['role' => 'Team member', 'email' => 'asha-benefit@alpha.test']);
+        $this->postJson('/api/v1/benefits/plans', ['code' => 'BAD_FORMULA', 'name' => 'Bad Formula', 'category' => 'insurance', 'country' => 'IN', 'currency' => 'INR',
+            'contributions' => ['employee_formula' => 'UNKNOWN * 1%'], 'effective_from' => '2026-01-01'])->assertUnprocessable();
         $plan = $this->postJson('/api/v1/benefits/plans', ['code' => 'HEALTH_CORE', 'name' => 'Health Plan', 'category' => 'insurance', 'country' => 'IN', 'currency' => 'INR',
             'eligibility' => ['worker_types' => ['employee'], 'countries' => ['IN']], 'contributions' => ['employee_fixed' => '150.00', 'employer_fixed' => '850.00'], 'effective_from' => '2026-01-01'])->assertCreated()->json('uuid');
         $this->postJson('/api/v1/benefits/plans/'.$plan.'/activate')->assertOk()->assertJsonPath('status', 'active');
