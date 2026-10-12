@@ -24,7 +24,13 @@ final class LifecycleController
 
     private function taskRules(): array
     {
-        return self::TASK_RULES + ['tasks.*.owner_type' => ['required', Rule::in(TemplateService::OWNERS)], 'tasks.*.due_anchor' => ['nullable', Rule::in(TemplateService::ANCHORS)]];
+        return self::TASK_RULES + ['tasks.*.remind_before_days' => 'nullable|integer|between:0,365', 'tasks.*.escalate_after_days' => 'nullable|integer|between:1,365', 'conditions.is_rehire' => 'nullable|boolean', 'tasks.*.depends_on' => 'nullable|array|max:199', 'tasks.*.depends_on.*' => 'integer|min:1|max:199', 'tasks.*.acknowledgment_text' => 'nullable|string|max:5000', 'tasks.*.owner_type' => ['required', Rule::in(TemplateService::OWNERS)], 'tasks.*.due_anchor' => ['nullable', Rule::in(TemplateService::ANCHORS)]];
+    }
+
+    public function taskOwners(Request $r)
+    {
+        $r->validate(['q' => 'nullable|string|max:100']);
+        return User::where('tenant_id', $r->user()->tenant_id)->where('active', true)->when($r->filled('q'), fn ($q) => $q->where('name', 'like', '%'.$r->input('q').'%'))->orderBy('name')->limit(50)->get(['id', 'name']);
     }
 
     public function templates(Request $r)
@@ -124,7 +130,7 @@ final class LifecycleController
 
     public function completeTask(Request $r, string $uuid)
     {
-        $d = $r->validate(['note' => 'nullable|string|max:2000', 'document_ref' => 'nullable|string|max:160', 'outcome' => ['nullable', Rule::in(['done', 'skipped'])]]);
+        $d = $r->validate(['acknowledged' => 'nullable|boolean', 'note' => 'nullable|string|max:2000', 'document_ref' => 'nullable|string|max:160', 'outcome' => ['nullable', Rule::in(['done', 'skipped'])]]);
         $task = LifecycleTask::where('uuid', $uuid)->firstOrFail();
         $case = LifecycleCase::findOrFail($task->case_id);
         $this->cases->authorizeTask($r->user(), $task, $case); // 404 for strangers (no existence leak)

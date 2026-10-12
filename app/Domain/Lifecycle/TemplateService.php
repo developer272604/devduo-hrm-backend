@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 /** Versioned checklist templates. A published version is immutable: change it by creating (and publishing) the next version. */
 final class TemplateService
 {
-    public const KINDS = ['onboarding', 'offboarding', 'transfer', 'promotion'];
+    public const KINDS = ['onboarding', 'offboarding', 'transfer', 'promotion', 'absence_return'];
 
     public const OWNERS = ['manager', 'hr', 'it', 'finance', 'employee', 'user'];
 
@@ -35,7 +35,15 @@ final class TemplateService
             $next = (int) TemplateVersion::where('template_id', $t->id)->max('version') + 1;
             $v = TemplateVersion::create(['template_id' => $t->id, 'version' => $next, 'status' => 'draft', 'conditions' => $this->conditions($d['conditions'] ?? []), 'created_by' => $actor->id]);
             foreach (array_values($d['tasks'] ?? []) as $i => $row) {
+                if (!empty($row['owner_user_id']) && !User::where('tenant_id', $actor->tenant_id)->where('active', true)->whereKey($row['owner_user_id'])->exists()) throw \Illuminate\Validation\ValidationException::withMessages(["tasks.$i.owner_user_id" => 'Choose an active user from this workspace.']);
+                if ($row['owner_type'] === 'user' && empty($row['owner_user_id'])) throw \Illuminate\Validation\ValidationException::withMessages(["tasks.$i.owner_user_id" => 'A named owner is required.']);
+                $dependencies = array_values(array_unique($row['depends_on'] ?? []));
+                foreach ($dependencies as $position) {
+                    if (!is_int($position) || $position < 1 || $position > $i) throw \Illuminate\Validation\ValidationException::withMessages(["tasks.$i.depends_on" => 'Dependencies must be earlier task numbers (starting at 1).']);
+                }
                 TemplateTask::create([
+                    'depends_on' => $dependencies, 'acknowledgment_text' => $row['acknowledgment_text'] ?? null,
+                    'remind_before_days' => $row['remind_before_days'] ?? 2, 'escalate_after_days' => $row['escalate_after_days'] ?? 1,
                     'version_id' => $v->id, 'group_name' => $row['group_name'] ?? 'General', 'title' => $row['title'], 'description' => $row['description'] ?? null,
                     'owner_type' => $row['owner_type'], 'owner_user_id' => $row['owner_user_id'] ?? null, 'due_anchor' => $row['due_anchor'] ?? ($t->kind === 'offboarding' ? 'last_day' : 'joining'),
                     'due_offset_days' => (int) ($row['due_offset_days'] ?? 0), 'mandatory' => (bool) ($row['mandatory'] ?? true), 'clearance_dept' => $row['clearance_dept'] ?? null,
@@ -86,8 +94,8 @@ final class TemplateService
         $versions = TemplateVersion::where('template_id', $t->id)->orderBy('version')->get()->map(fn ($v) => [
             'uuid' => $v->uuid, 'version' => $v->version, 'status' => $v->status, 'conditions' => $v->conditions ?: new \stdClass, 'published_at' => $v->published_at?->toIso8601String(),
             'tasks' => TemplateTask::where('version_id', $v->id)->orderBy('sort')->get()->map(fn ($x) => [
-                'group' => $x->group_name, 'title' => $x->title, 'description' => $x->description, 'owner_type' => $x->owner_type, 'due_anchor' => $x->due_anchor, 'due_offset_days' => $x->due_offset_days,
-                'mandatory' => $x->mandatory, 'clearance_dept' => $x->clearance_dept, 'requires_document' => $x->requires_document])->all(),
+                'group' => $x->group_name, 'group_name' => $x->group_name, 'title' => $x->title, 'description' => $x->description, 'owner_type' => $x->owner_type, 'owner_user_id' => $x->owner_user_id, 'due_anchor' => $x->due_anchor, 'due_offset_days' => $x->due_offset_days,
+                'mandatory' => $x->mandatory, 'clearance_dept' => $x->clearance_dept, 'requires_document' => $x->requires_document, 'depends_on' => $x->depends_on ?? [], 'acknowledgment_text' => $x->acknowledgment_text, 'remind_before_days' => (int) $x->remind_before_days, 'escalate_after_days' => (int) $x->escalate_after_days])->all(),
         ])->all();
 
         return ['uuid' => $t->uuid, 'kind' => $t->kind, 'name' => $t->name, 'active' => $t->active, 'versions' => $versions];
@@ -95,7 +103,7 @@ final class TemplateService
 
     private function conditions(array $c): array
     {
-        return array_filter(array_intersect_key($c, array_flip(['country', 'legal_entity_id', 'worker_type', 'separation_type'])), fn ($v) => $v !== null && $v !== '');
+        return array_filter(array_intersect_key($c, array_flip(['country', 'legal_entity_id', 'worker_type', 'separation_type', 'is_rehire'])), fn ($v) => $v !== null && $v !== '');
     }
 
     /** @return array<string,mixed> */
@@ -108,6 +116,6 @@ final class TemplateService
             $country = (is_string($meta) ? json_decode($meta, true) : (array) $meta)['country'] ?? null;
         }
 
-        return ['country' => $country, 'legal_entity_id' => $a?->legal_entity_id, 'worker_type' => $employee->worker_type, 'separation_type' => $ctx['separation_type'] ?? null];
+        return ['country' => $country, 'legal_entity_id' => $a?->legal_entity_id, 'worker_type' => $employee->worker_type, 'separation_type' => $ctx['separation_type'] ?? null, 'is_rehire' => $employee->employment_sequence > 1];
     }
 }

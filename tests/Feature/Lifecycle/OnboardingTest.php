@@ -107,6 +107,33 @@ class OnboardingTest extends TestCase
         $this->assertSame('Generic task', $this->getJson('/api/v1/lifecycle/cases/'.$inCase['uuid'])->json('tasks.0.title'));
     }
 
+    public function test_prerequisites_and_owner_acknowledgment_are_enforced(): void
+    {
+        $hire = $this->hire('Checklist Owner', ['joined_on' => '2026-11-02', 'status' => 'preboarding', 'role' => 'Team member', 'email' => 'owner@alpha.test']);
+        $this->publishedTemplate('onboarding', [
+            ['title' => 'Prepare policy', 'owner_type' => 'hr', 'mandatory' => true],
+            ['title' => 'Acknowledge policy', 'owner_type' => 'employee', 'mandatory' => true, 'depends_on' => [1], 'acknowledgment_text' => 'I have read the policy.'],
+        ]);
+        $this->context($this->admin->tenant_id);
+        $owner = User::where('email', 'owner@alpha.test')->firstOrFail();
+        $case = $this->postJson('/api/v1/lifecycle/cases', ['employee_uuid' => $hire->uuid, 'kind' => 'onboarding'])->assertCreated()->json();
+        $tasks = collect($case['tasks'])->keyBy('title');
+        $prepare = '/api/v1/lifecycle/tasks/'.$tasks['Prepare policy']['uuid'].'/complete';
+        $acknowledge = '/api/v1/lifecycle/tasks/'.$tasks['Acknowledge policy']['uuid'].'/complete';
+        $this->assertCount(1, $tasks['Acknowledge policy']['blocked_by']);
+        $this->signIn($owner);
+        $this->postJson($acknowledge, ['acknowledged' => true])->assertConflict();
+        $this->signIn($this->admin);
+        $this->postJson($prepare)->assertOk();
+        $this->postJson($acknowledge, ['acknowledged' => true])->assertForbidden();
+        $this->signIn($owner);
+        $this->postJson($acknowledge)->assertUnprocessable();
+        $this->postJson($acknowledge, ['acknowledged' => true])->assertOk()->assertJsonPath('status', 'done');
+        $this->context($this->admin->tenant_id);
+        $this->assertNotNull(LifecycleTask::where('uuid', $tasks['Acknowledge policy']['uuid'])->value('acknowledged_at'));
+        $this->assertSame('completed', LifecycleCase::where('uuid', $case['uuid'])->value('status'));
+    }
+
     public function test_delayed_joining_shifts_pending_due_dates(): void
     {
         $hire = $this->hire('Ravi New', ['joined_on' => '2026-11-02', 'status' => 'preboarding']);

@@ -13,6 +13,6 @@ class LifecycleTask extends TenantRecord
 
     protected function casts(): array
     {
-        return ['due_date' => 'date:Y-m-d', 'mandatory' => 'boolean', 'requires_document' => 'boolean', 'completed_at' => 'datetime', 'reminded_at' => 'datetime', 'escalated_at' => 'datetime'];
+        return ['due_date' => 'date:Y-m-d', 'mandatory' => 'boolean', 'requires_document' => 'boolean', 'completed_at' => 'datetime', 'reminded_at' => 'datetime', 'escalated_at' => 'datetime', 'depends_on' => 'array', 'acknowledged_at' => 'datetime'];
     }
 }

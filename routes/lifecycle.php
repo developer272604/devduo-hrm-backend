@@ -1,10 +1,23 @@
 <?php
 
 use App\Http\Controllers\Lifecycle\LifecycleController as L;
+use App\Http\Controllers\Lifecycle\ResignationController as R;
+use App\Http\Controllers\Lifecycle\ReturnController as W;
 use Illuminate\Support\Facades\Route;
 
 /* Phase 7 core. Contract: docs/api/lifecycle-onboarding.md. Required from routes/web.php inside the authenticated tenant group. */
 Route::prefix('v1/lifecycle')->middleware('module:lifecycle')->group(function () {
+    Route::get('returns/employees', [W::class, 'employees'])->middleware('permission:people.manage');
+    Route::get('returns', [W::class, 'index'])->middleware('permission:people.manage');
+    Route::post('returns', [W::class, 'store'])->middleware('permission:people.manage');
+    Route::post('returns/{uuid}/decision', [W::class, 'decide'])->middleware('permission:people.manage');
+    Route::get('me/resignation-employments', [R::class, 'employments'])->middleware('permission:lifecycle.self');
+    Route::get('me/resignations', [R::class, 'mine'])->middleware('permission:lifecycle.self');
+    Route::post('me/resignations', [R::class, 'store'])->middleware('permission:lifecycle.self');
+    Route::post('me/resignations/{uuid}/withdraw', [R::class, 'withdraw'])->middleware('permission:lifecycle.self');
+    Route::get('resignations', [R::class, 'index'])->middleware('permission:people.separate');
+    Route::post('resignations/{uuid}/decision', [R::class, 'decide'])->middleware('permission:people.separate');
+    Route::get('task-owners', [L::class, 'taskOwners'])->middleware('permission:lifecycle.templates.manage');
     Route::get('templates', [L::class, 'templates'])->middleware('permission:lifecycle.templates.manage|lifecycle.view');
     Route::post('templates', [L::class, 'createTemplate'])->middleware('permission:lifecycle.templates.manage');
     Route::get('templates/{uuid}', [L::class, 'showTemplate'])->middleware('permission:lifecycle.templates.manage|lifecycle.view');

@@ -41,13 +41,14 @@ final class LifecycleModuleBoot
 
         Event::listen(DomainEventRecorded::class, function (DomainEventRecorded $recorded) {
             $e = $recorded->event;
-            if (! in_array($e->type, ['RecruitmentHired', 'SeparationInitiated', 'SeparationWithdrawn', 'EmployeeSeparated'], true) || ! $e->employee_id) return;
+            if (! in_array($e->type, ['RecruitmentHired', 'EmployeeRehired', 'SeparationInitiated', 'SeparationWithdrawn', 'EmployeeSeparated'], true) || ! $e->employee_id) return;
             try {
                 $employee = Employee::find($e->employee_id);
                 if (! $employee || ! in_array('lifecycle', \App\Models\Tenant::whereKey($e->tenant_id)->value('settings')['modules'] ?? [], true)) return;
                 $cases = app(CaseService::class);
                 match ($e->type) {
                     'RecruitmentHired' => $cases->generate('onboarding', $employee, $e->effective_date?->toDateString() ?? $employee->joined_on->toDateString(), ['source' => 'recruitment_handover']),
+                    'EmployeeRehired' => $cases->generate('onboarding', $employee, $employee->joined_on->toDateString(), ['source' => 'rehire']),
                     'SeparationInitiated' => $cases->generate('offboarding', $employee, $e->effective_date?->toDateString() ?? $employee->separated_on->toDateString(), [
                         'source' => 'separation', 'separation_type' => $e->payload['type'] ?? null, 'separation_record_id' => SeparationRecord::where('uuid', $e->payload['record'] ?? '')->value('id')]),
                     'SeparationWithdrawn' => LifecycleCase::where('employee_id', $employee->id)->where('kind', 'offboarding')->where('status', 'open')->get()->each(fn ($c) => $cases->cancel($c, 'Separation withdrawn')),

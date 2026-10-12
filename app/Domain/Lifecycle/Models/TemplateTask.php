@@ -13,6 +13,6 @@ class TemplateTask extends TenantRecord
 
     protected function casts(): array
     {
-        return ['mandatory' => 'boolean', 'requires_document' => 'boolean'];
+        return ['mandatory' => 'boolean', 'requires_document' => 'boolean', 'depends_on' => 'array'];
     }
 }

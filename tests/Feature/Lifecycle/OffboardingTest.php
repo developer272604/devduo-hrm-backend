@@ -137,6 +137,20 @@ class OffboardingTest extends TestCase
         $this->getJson('/api/v1/lifecycle/alumni')->assertOk()->assertJsonPath('data.0.rehire_eligible', true);
     }
 
+    public function test_configured_reminder_and_escalation_windows(): void
+    {
+        $this->leaver();
+        $this->context($this->admin->tenant_id);
+        LifecycleTask::query()->update(['due_date' => '2026-10-20', 'remind_before_days' => 0, 'escalate_after_days' => 3]);
+        $jobs = app(LifecycleJobs::class);
+        foreach (['2026-10-19' => [0, 0], '2026-10-20' => [3, 0], '2026-10-21' => [0, 0], '2026-10-23' => [0, 3]] as $date => [$reminded, $escalated]) {
+            $this->travelTo(\Carbon\Carbon::parse($date.' 05:00:00', 'UTC'));
+            $this->context($this->admin->tenant_id);
+            $this->assertSame(['reminded' => $reminded, 'escalated' => $escalated], $jobs->remind());
+        }
+        $this->assertSame(['reminded' => 0, 'escalated' => 0], $jobs->remind());
+    }
+
     public function test_escalation_and_reminders_are_idempotent(): void
     {
         [$emp, $case] = $this->leaver();

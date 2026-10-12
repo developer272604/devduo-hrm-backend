@@ -26,17 +26,21 @@ final class CaseService
         return DB::transaction(function () use ($kind, $employee, $anchor, $opts) {
             Employee::whereKey($employee->id)->lockForUpdate()->first();
             $existing = LifecycleCase::where('employee_id', $employee->id)->where('kind', $kind)->when(in_array($kind, ['onboarding', 'offboarding'], true), fn ($q) => $q->where('status', 'open'),
-                fn ($q) => $q->where('anchor_date', $anchor))->first();
+                fn ($q) => $q->where('anchor_date', $anchor))->when($kind === 'absence_return', fn ($q) => $q->where('source', $opts['source'] ?? 'manual'))->first();
             if ($existing) return $existing;
 
             $version = $this->templates->resolve($kind, $employee, $opts, $anchor);
             $case = LifecycleCase::create(['kind' => $kind, 'employee_id' => $employee->id, 'version_id' => $version?->id, 'status' => 'open', 'anchor_date' => $anchor,
                 'separation_record_id' => $opts['separation_record_id'] ?? null, 'move_id' => $opts['move_id'] ?? null, 'source' => $opts['source'] ?? 'manual']);
+            $generated = [];
             foreach ($version ? TemplateTask::where('version_id', $version->id)->orderBy('sort')->get() : [] as $tt) {
                 $task = LifecycleTask::create(['case_id' => $case->id, 'template_task_id' => $tt->id, 'group_name' => $tt->group_name, 'title' => $tt->title, 'description' => $tt->description,
+                    'depends_on' => array_map(fn ($position) => $generated[$position], $tt->depends_on ?? []), 'acknowledgment_text' => $tt->acknowledgment_text,
+                    'remind_before_days' => $tt->remind_before_days, 'escalate_after_days' => $tt->escalate_after_days,
                     'owner_type' => $tt->owner_type, 'owner_user_id' => $this->owner($tt->owner_type, $tt->owner_user_id, $employee, $anchor), 'due_date' => CarbonImmutable::parse($anchor)->addDays($tt->due_offset_days)->toDateString(),
                     'mandatory' => $tt->mandatory, 'clearance_dept' => $tt->clearance_dept, 'requires_document' => $tt->requires_document, 'status' => 'pending']);
                 $this->workItem($case, $task);
+                $generated[count($generated) + 1] = $task->id;
             }
             if ($kind === 'offboarding') {
                 $years = (int) TenantClock::setting('lifecycle.exit_retention_years', 3);
@@ -66,17 +70,24 @@ final class CaseService
     public function complete(User $actor, LifecycleTask $task, array $d): LifecycleTask
     {
         return DB::transaction(function () use ($actor, $task, $d) {
+            $case = LifecycleCase::whereKey($task->case_id)->lockForUpdate()->firstOrFail();
             $task = LifecycleTask::whereKey($task->id)->lockForUpdate()->firstOrFail();
-            if ($task->status !== 'pending') return $task; // idempotent retry
-            $case = LifecycleCase::findOrFail($task->case_id);
-            abort_unless($case->status === 'open', 409, 'This case is closed.');
             $this->authorizeTask($actor, $task, $case, true);
+            if ($task->status !== 'pending') return $task; // idempotent retry
+            abort_unless($case->status === 'open', 409, 'This case is closed.');
+            $dependencies = $task->depends_on ?? [];
+            $resolved = LifecycleTask::where('case_id', $case->id)->whereIn('id', $dependencies)->whereIn('status', ['done', 'skipped'])->count();
+            abort_unless($resolved === count($dependencies), 409, 'Complete the prerequisite tasks first.');
+            if ($task->acknowledgment_text) {
+                abort_unless($task->owner_user_id === $actor->id, 403, 'Only the assigned owner may acknowledge this task.');
+                abort_unless(!empty($d['acknowledged']) && ($d['outcome'] ?? 'done') === 'done', 422, 'Read and acknowledge the statement before completing this task.');
+            }
             if ($task->requires_document && empty($d['document_ref'])) {
                 abort(response()->json(['message' => 'Attach or reference the required document before completing this task.', 'code' => 'document_required'], 422));
             }
             $skip = ($d['outcome'] ?? 'done') === 'skipped';
             abort_if($skip && $task->mandatory, 422, 'A mandatory task cannot be skipped.');
-            $task->update(['status' => $skip ? 'skipped' : 'done', 'note' => $d['note'] ?? null, 'document_ref' => $d['document_ref'] ?? null, 'completed_by' => $actor->id, 'completed_at' => now()]);
+            $task->update(['status' => $skip ? 'skipped' : 'done', 'note' => $d['note'] ?? null, 'document_ref' => $d['document_ref'] ?? null, 'completed_by' => $actor->id, 'completed_at' => now(), 'acknowledged_at' => $task->acknowledgment_text ? now() : null]);
             app(TaskService::class)->completeBySource('lifecycle', 'task:'.$task->uuid);
             Audit::record('task.completed', 'lifecycle', $task->uuid, ['case' => $case->uuid, 'outcome' => $task->status]);
             $this->closeIfDone($case);
@@ -162,7 +173,9 @@ final class CaseService
 
     public function presentTask(LifecycleTask $t): array
     {
+        $pendingDependencies = LifecycleTask::where('case_id', $t->case_id)->whereIn('id', $t->depends_on ?? [])->where('status', 'pending')->get(['uuid', 'title']);
         return ['uuid' => $t->uuid, 'group' => $t->group_name, 'title' => $t->title, 'description' => $t->description, 'owner_type' => $t->owner_type, 'owner_user_id' => $t->owner_user_id,
+            'blocked_by' => $pendingDependencies->toArray(), 'acknowledgment_text' => $t->acknowledgment_text, 'acknowledged_at' => $t->acknowledged_at?->toIso8601String(),
             'due_date' => $t->due_date?->toDateString(), 'mandatory' => $t->mandatory, 'clearance_dept' => $t->clearance_dept, 'requires_document' => $t->requires_document, 'document_ref' => $t->document_ref,
             'status' => $t->status, 'overdue' => $t->status === 'pending' && $t->due_date && $t->due_date->toDateString() < TenantClock::today(), 'escalated' => (bool) $t->escalated_at,
             'completed_at' => $t->completed_at?->toIso8601String()];
