@@ -110,6 +110,35 @@ class PaymentAccountingSettlementTest extends TestCase
         $this->assertSame(0, DB::table('accounting_exports')->whereRaw('total_debit != total_credit')->count());
     }
 
+    public function test_payroll_legal_hold_blocks_expired_export_and_bank_file_purge(): void
+    {
+        $this->context($this->admin->tenant_id);
+        Storage::disk('payroll_files')->put('reports/alpha.csv', 'payroll report');
+        Storage::disk('payroll_files')->put('bank-files/alpha.csv', 'bank file');
+        DB::table('payroll_exports')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'report' => 'summary', 'format' => 'csv', 'status' => 'ready',
+            'filters' => json_encode([]), 'file_path' => 'reports/alpha.csv', 'row_count' => 1, 'expires_at' => now()->subMinute(), 'created_by' => $this->admin->id, 'created_at' => now(), 'updated_at' => now()]);
+        $batch = DB::table('payment_batches')->insertGetId(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'run_id' => $this->run->id, 'format' => 'generic_csv', 'currency' => 'INR',
+            'status' => 'prepared', 'version' => 1, 'employee_count' => 1, 'total_amount' => '100.0000', 'prepared_by' => $this->admin->id, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('bank_file_exports')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'batch_id' => $batch, 'format' => 'generic_csv', 'file_version' => 1, 'status' => 'generated',
+            'employee_count' => 1, 'total_amount' => '100.0000', 'file_path' => 'bank-files/alpha.csv', 'checksum' => str_repeat('a', 64), 'generated_by' => $this->admin->id, 'generated_at' => now(),
+            'expires_at' => now()->subMinute(), 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('legal_holds')->insert(['uuid' => (string) Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'name' => 'Payroll file hold', 'reason' => 'Preserve payroll files for review.',
+            'module' => 'payroll', 'subject_ref' => null, 'placed_by' => $this->admin->id, 'placed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->artisan('payroll:purge-exports')->assertSuccessful();
+        $this->assertTrue(Storage::disk('payroll_files')->exists('reports/alpha.csv'));
+        $this->assertTrue(Storage::disk('payroll_files')->exists('bank-files/alpha.csv'));
+        $this->assertSame('ready', DB::table('payroll_exports')->value('status'));
+        $this->assertSame('generated', DB::table('bank_file_exports')->value('status'));
+
+        DB::table('legal_holds')->where('module', 'payroll')->update(['released_at' => now(), 'released_by' => $this->admin->id, 'release_reason' => 'Review complete.']);
+        $this->artisan('payroll:purge-exports')->assertSuccessful();
+        $this->assertFalse(Storage::disk('payroll_files')->exists('reports/alpha.csv'));
+        $this->assertFalse(Storage::disk('payroll_files')->exists('bank-files/alpha.csv'));
+        $this->assertSame('expired', DB::table('payroll_exports')->value('status'));
+        $this->assertSame('expired', DB::table('bank_file_exports')->value('status'));
+    }
+
     public function test_settlement_is_itemised_maker_checker_and_stored_through_result_store(): void
     {
         $loan = $this->signIn($this->admin)->postJson('/api/v1/payroll/loans', ['employee_uuid' => $this->employee->uuid, 'principal' => '3000.00', 'currency' => 'INR', 'issue_date' => '2026-08-01', 'recovery_start' => '2026-09-01',

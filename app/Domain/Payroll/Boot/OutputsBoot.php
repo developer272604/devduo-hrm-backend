@@ -5,6 +5,7 @@ namespace App\Domain\Payroll\Boot;
 use App\Domain\Payroll\Accounting\JournalCsvMapper;
 use App\Domain\Payroll\Payments\PaymentService;
 use App\Domain\Payroll\Support\AccountingMapperRegistry;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Foundation\Application;
 
 /**
@@ -22,5 +23,8 @@ final class OutputsBoot
             $config->set('filesystems.disks.'.PaymentService::DISK, ['driver' => 'local', 'root' => storage_path('app/private/payroll'), 'visibility' => 'private', 'throw' => true, 'report' => false]);
         }
         $app->make(AccountingMapperRegistry::class)->register(JournalCsvMapper::CODE, JournalCsvMapper::class);
+        if ($app->bound(Schedule::class)) {
+            $app->make(Schedule::class)->command('payroll:purge-exports')->hourly();
+        }
     }
 }
