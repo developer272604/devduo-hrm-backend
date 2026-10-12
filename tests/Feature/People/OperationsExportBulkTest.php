@@ -146,6 +146,26 @@ class OperationsExportBulkTest extends TestCase
         $this->assertSame('expired', EmployeeExport::where('uuid', $uuid)->value('status'));
     }
 
+    public function test_people_legal_hold_blocks_expired_export_purge(): void
+    {
+        $this->signIn($this->admin);
+        $uuid = $this->postJson('/api/v1/people/exports', ['format' => 'csv'])->assertStatus(202)->json('uuid');
+        $this->context($this->admin->tenant_id);
+        $path = EmployeeExport::where('uuid', $uuid)->value('path');
+        DB::table('legal_holds')->insert(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'tenant_id' => $this->admin->tenant_id, 'name' => 'People export hold',
+            'reason' => 'Preserve people exports for review.', 'module' => 'people', 'subject_ref' => null, 'placed_by' => $this->admin->id, 'placed_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->travel(25)->hours();
+        $this->artisan('people:purge-exports')->assertSuccessful();
+        $this->assertTrue(Storage::disk('hrm_exports')->exists($path));
+        $this->assertSame('completed', EmployeeExport::where('uuid', $uuid)->value('status'));
+
+        DB::table('legal_holds')->where('module', 'people')->update(['released_at' => now(), 'released_by' => $this->admin->id, 'release_reason' => 'Review complete.']);
+        $this->artisan('people:purge-exports')->assertSuccessful();
+        $this->assertFalse(Storage::disk('hrm_exports')->exists($path));
+        $this->assertSame('expired', EmployeeExport::where('uuid', $uuid)->value('status'));
+    }
+
     // ---- bulk ---------------------------------------------------------------------------------
 
     private function preview(string $action, array $params, array $uuids): \Illuminate\Testing\TestResponse
