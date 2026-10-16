@@ -1,0 +1,1711 @@
+# HRM MASTER SPECIFICATION
+
+## PHASE 5 — GLOBAL PAYROLL, COMPENSATION & BENEFITS
+
+Continue from completed Phases 1–4.
+
+The product remains:
+
+- Multi-country from Day 1
+- Multi-tenant SaaS
+- Enterprise-capable
+- Keka-class product ambition
+- API-first
+- Permission-aware
+- Effective-dated
+- Audit-first
+- Explainable
+- Payroll-grade financial accuracy
+- Mobile-responsive
+- Automation-ready
+
+Reuse:
+
+Authentication
+Tenant Isolation
+RBAC
+Data Scopes
+Employee Master
+Organization Structures
+Country Configuration
+Effective-Dated Employment
+Attendance
+Overtime
+Leave
+My Work
+Notifications
+Audit
+Employee 360
+Organization Memory
+HR Data Quality Engine
+Action & Intelligence Layer
+Domain Events
+
+Do NOT start Recruitment, Performance, Learning or Expenses.
+
+==================================================
+1. PAYROLL DOMAIN
+==================================================
+
+Create dedicated Payroll & Compensation domains.
+
+Core concepts:
+
+Payroll Country Pack
+Payroll Group
+Payroll Calendar
+Payroll Period
+Payroll Run
+Payroll Run Employee
+Salary Structure
+Salary Component
+Employee Compensation
+Compensation Revision
+Earning
+Deduction
+Employer Contribution
+Taxable Benefit
+Statutory Contribution
+Payroll Input
+Payroll Adjustment
+Attendance Input
+Leave Input
+Overtime Input
+Retro Pay
+Arrear
+Loan
+Advance
+Reimbursement Input
+Benefit
+Payroll Result
+Payslip
+Payroll Lock
+Payment Instruction
+Bank File
+Accounting Entry
+Full & Final Settlement
+Payroll Validation
+
+Financial calculations MUST use decimal-safe arithmetic.
+
+Never use binary floating-point for payroll money.
+
+==================================================
+2. GLOBAL PAYROLL ARCHITECTURE
+==================================================
+
+Separate:
+
+GLOBAL PAYROLL ENGINE
+
+from:
+
+COUNTRY PAYROLL PACKS
+
+from:
+
+TENANT PAYROLL CONFIGURATION
+
+The global engine handles:
+
+Periods
+Inputs
+Components
+Formulas
+Runs
+Validation
+Adjustments
+Locks
+Results
+Payslips
+Accounting
+Payments
+
+Country packs handle:
+
+Statutory concepts
+Tax rules
+Mandatory contributions
+Country-specific identifiers
+Reporting requirements
+Country-specific rounding
+Statutory calendars
+
+Never hard-code one country's payroll laws into the core engine.
+
+==================================================
+3. COUNTRY PACK VERSIONING
+==================================================
+
+Country statutory rules change over time.
+
+Country packs must support:
+
+Version
+Effective From
+Effective To
+Published Status
+Rule Metadata
+Calculation Rules
+Validation Rules
+
+Historical payroll must reference the exact rule version used.
+
+Never recalculate historical payroll using a newly published statutory rule unless explicitly running a controlled correction.
+
+==================================================
+4. PAYROLL GROUPS
+==================================================
+
+Support payroll groups by:
+
+Country
+Legal Entity
+Currency
+Pay Frequency
+Employee Category
+Location
+Worker Type
+
+Examples:
+
+India Monthly Payroll
+UK Monthly Payroll
+US Biweekly Payroll
+Singapore Monthly Payroll
+
+An employee must resolve to one valid payroll group for a given employment period.
+
+==================================================
+5. PAY FREQUENCIES
+==================================================
+
+Support:
+
+Weekly
+Biweekly
+Semi-Monthly
+Monthly
+Four-Weekly
+Custom
+
+Do not assume monthly payroll globally.
+
+==================================================
+6. PAYROLL CALENDAR
+==================================================
+
+Each payroll group should define:
+
+Period Start
+Period End
+Attendance Cutoff
+Leave Cutoff
+Variable Pay Cutoff
+Payroll Input Cutoff
+Approval Deadline
+Payment Date
+
+Support future periods.
+
+==================================================
+7. PAYROLL PERIOD STATES
+==================================================
+
+Suggested states:
+
+Upcoming
+Input Open
+Processing
+Validation
+Approval
+Approved
+Locked
+Payment Processing
+Paid
+Closed
+Reopened
+
+State transitions must be controlled and audited.
+
+==================================================
+8. SALARY COMPONENT ENGINE
+==================================================
+
+Create configurable component types:
+
+Fixed Earning
+Variable Earning
+Deduction
+Employer Contribution
+Employee Contribution
+Tax
+Benefit
+Reimbursement
+Informational
+
+Examples are tenant/country configuration, not universal assumptions.
+
+==================================================
+9. SALARY COMPONENT CONFIGURATION
+==================================================
+
+Support:
+
+Name
+Code
+Type
+Country
+Currency
+Tax Classification
+Proration
+Attendance Dependency
+LOP Dependency
+Overtime Dependency
+Formula
+Rounding
+Minimum
+Maximum
+Effective Dates
+Payslip Visibility
+Accounting Mapping
+Statutory Mapping
+Active/Inactive
+
+==================================================
+10. FORMULA ENGINE
+==================================================
+
+Build a controlled payroll formula engine.
+
+Support references such as:
+
+Base Component
+Gross
+Working Days
+Payable Days
+Attendance Units
+Leave Without Pay
+Overtime Units
+Employee Attributes
+Constants
+Country Rule Outputs
+
+Do NOT execute arbitrary tenant-provided code.
+
+Use safe expression parsing and whitelisted functions.
+
+==================================================
+11. FORMULA VERSIONING
+==================================================
+
+Formula changes must be effective-dated/versioned.
+
+Historical payroll must retain formula trace.
+
+==================================================
+12. SALARY STRUCTURES
+==================================================
+
+Create reusable structures/templates.
+
+Example:
+
+Executive Structure
+Standard Employee Structure
+Hourly Worker Structure
+
+Structure contains applicable components and rules.
+
+==================================================
+13. EMPLOYEE COMPENSATION
+==================================================
+
+Store effective-dated compensation.
+
+Support:
+
+Base Pay
+Gross Reference
+Annual Compensation
+Hourly Rate
+Daily Rate
+Salary Structure
+Currency
+Pay Frequency
+Components
+
+Do not overwrite compensation history.
+
+==================================================
+14. COMPENSATION REVISION
+==================================================
+
+Support:
+
+Increment
+Promotion Revision
+Market Correction
+Adjustment
+Transfer
+Demotion
+Other
+
+Store:
+
+Old Compensation
+New Compensation
+Effective Date
+Reason
+Initiator
+Approver
+Comments
+
+Future-dated revisions must be supported.
+
+==================================================
+15. COMPENSATION HISTORY
+==================================================
+
+Authorized users can inspect historical revisions.
+
+Sensitive compensation must use strict permissions.
+
+Managers should not automatically receive full salary visibility.
+
+==================================================
+16. MULTI-CURRENCY
+==================================================
+
+Support compensation/payroll currencies.
+
+Never silently mix currencies.
+
+Prepare exchange-rate architecture for reporting and future cross-border compensation.
+
+Payroll itself should use configured payroll currency unless country/business rules explicitly require otherwise.
+
+==================================================
+17. PAYROLL INPUT ENGINE
+==================================================
+
+Create standardized input architecture.
+
+Sources:
+
+Attendance
+Leave
+Overtime
+Variable Pay
+Bonus
+Commission
+Adjustment
+Loan
+Benefit
+Reimbursement
+External Import
+API
+Manual HR Input
+
+Every input must identify its source.
+
+==================================================
+18. ATTENDANCE INTEGRATION
+==================================================
+
+Consume finalized Phase 3 outputs:
+
+Payable Days
+Present Days
+Absent Units
+Approved OT
+Attendance Adjustments
+Attendance Readiness
+
+Do not duplicate attendance calculations.
+
+==================================================
+19. LEAVE INTEGRATION
+==================================================
+
+Consume Phase 4 outputs:
+
+Paid Leave
+Unpaid Leave
+Leave Without Pay
+Statutory Leave
+Comp-Off
+Encashment References
+Leave Readiness
+
+Do not duplicate leave calculations.
+
+==================================================
+20. PAYABLE DAYS
+==================================================
+
+Create configurable payable-day resolution.
+
+Consider:
+
+Employment Start/End
+Attendance
+Paid Leave
+Unpaid Leave
+Holiday
+Weekly Off
+Country/Tenant Rules
+
+Calculation must be explainable.
+
+==================================================
+21. PRORATION
+==================================================
+
+Support:
+
+Joiner
+Leaver
+Mid-period Compensation Change
+Unpaid Leave
+Transfer
+Payroll Group Change
+
+Proration rules may vary by country/tenant.
+
+==================================================
+22. VARIABLE PAY
+==================================================
+
+Support:
+
+Bonus
+Commission
+Incentive
+Shift Allowance
+One-Time Payment
+Custom Variable Earnings
+
+Inputs may be:
+
+Manual
+Imported
+API
+Future Performance Integration
+
+==================================================
+23. BONUS FOUNDATION
+==================================================
+
+Support:
+
+Fixed Amount
+Percentage
+Formula-Based
+One-Time
+Recurring
+
+Do not build performance bonus planning yet.
+
+==================================================
+24. OVERTIME PAYROLL INPUT
+==================================================
+
+Approved Phase 3 OT should produce normalized payroll inputs.
+
+Support country/tenant multipliers through payroll rules.
+
+Do not modify approved attendance OT inside payroll.
+
+==================================================
+25. ARREARS
+==================================================
+
+Support prior-period adjustments.
+
+Examples:
+
+Late Salary Revision
+Late Attendance Correction
+Late Leave Approval
+Missed Allowance
+
+Track originating period and settlement period.
+
+==================================================
+26. RETROACTIVE PAY
+==================================================
+
+Create retro engine.
+
+Example:
+
+Salary revised effective July 1 but approved September 10.
+
+System calculates difference for July/August and current period impact.
+
+Provide explainable period-by-period calculation.
+
+==================================================
+27. RETRO REVERSALS
+==================================================
+
+If retroactive changes are reversed/corrected, preserve transaction history.
+
+Never silently delete prior retro calculations.
+
+==================================================
+28. DEDUCTIONS
+==================================================
+
+Support:
+
+Fixed
+Percentage
+Formula
+One-Time
+Recurring
+Statutory
+Voluntary
+
+Validate limits where country pack defines them.
+
+==================================================
+29. LOANS
+==================================================
+
+Create employee loan foundation.
+
+Support:
+
+Principal
+Issue Date
+Installments
+Interest Configuration
+Recovery Start
+Recovery Schedule
+Outstanding
+Status
+
+Do not build a banking/lending product.
+
+==================================================
+30. ADVANCES
+==================================================
+
+Support salary/pay advances where enabled.
+
+Track recovery through payroll inputs.
+
+==================================================
+31. BENEFITS FOUNDATION
+==================================================
+
+Create benefit architecture.
+
+Examples:
+
+Insurance
+Meal
+Transport
+Housing
+Wellness
+Retirement
+Flexible Benefits
+Custom Benefits
+
+Benefits may have:
+
+Employee Contribution
+Employer Contribution
+Tax Treatment
+Eligibility
+Effective Dates
+
+==================================================
+32. BENEFIT PLANS
+==================================================
+
+Support plan/provider configuration.
+
+Do not hard-code country-specific benefits globally.
+
+==================================================
+33. BENEFIT ENROLLMENT FOUNDATION
+==================================================
+
+Employee may later select eligible benefits.
+
+Support:
+
+Eligibility
+Enrollment Window
+Effective Date
+Dependents
+Employee Contribution
+Employer Contribution
+
+Keep architecture ready without overbuilding insurance administration.
+
+==================================================
+34. STATUTORY ENGINE
+==================================================
+
+Country packs must provide statutory calculation interfaces.
+
+Examples of concepts:
+
+Income Tax
+Social Insurance
+Pension
+Provident Contributions
+Local Taxes
+Mandatory Insurance
+
+Actual rule implementations belong to each country pack.
+
+==================================================
+35. STATUTORY IDENTIFIERS
+==================================================
+
+Consume country-specific employee identifiers from Phase 2 securely.
+
+Mask sensitive values.
+
+==================================================
+36. TAX DECLARATION FOUNDATION
+==================================================
+
+Support country packs requiring employee tax declarations.
+
+Architecture should support:
+
+Declarations
+Proofs
+Review
+Approval
+Tax Regime/Category
+Effective Period
+
+Do not assume one country's tax declaration workflow.
+
+==================================================
+37. PAYROLL RUN
+==================================================
+
+Create guided payroll run workflow.
+
+Suggested stages:
+
+1 Readiness
+2 Collect Inputs
+3 Validate
+4 Calculate
+5 Review Exceptions
+6 Compare
+7 Approve
+8 Lock
+9 Generate Outputs
+10 Payment
+11 Close
+
+==================================================
+38. PAYROLL READINESS
+==================================================
+
+Before processing show:
+
+Employees Expected
+Attendance Finalized
+Leave Finalized
+Missing Compensation
+Missing Bank Details
+Missing Statutory Data
+Pending Inputs
+Unresolved Payroll Exceptions
+
+Do not allow users to discover these only after payroll calculation fails.
+
+==================================================
+39. PAYROLL CALCULATION
+==================================================
+
+Calculation must be:
+
+Deterministic
+Idempotent
+Versioned
+Reproducible
+Explainable
+
+Store sufficient calculation trace.
+
+==================================================
+40. PAYROLL RESULT
+==================================================
+
+Per employee retain:
+
+Inputs
+Earnings
+Deductions
+Employer Contributions
+Tax
+Benefits
+Gross
+Net
+Currency
+Payable Days
+Calculation Version
+Country Pack Version
+Warnings
+Errors
+
+==================================================
+41. PAYROLL VALIDATION ENGINE
+==================================================
+
+Detect:
+
+Negative Net Pay
+Unexpected Zero Pay
+Large Pay Variance
+Missing Bank
+Missing Tax Data
+Missing Salary
+Attendance Not Final
+Leave Not Final
+Unapproved Variable Input
+Duplicate Input
+Invalid Formula
+Statutory Failure
+Payroll Group Conflict
+
+==================================================
+42. VALIDATION SEVERITY
+==================================================
+
+Support:
+
+Information
+Warning
+Blocking
+Critical Operational Failure
+
+Do not use "critical" for ordinary variances.
+
+==================================================
+43. PAYROLL VARIANCE ANALYSIS
+==================================================
+
+Compare current period against prior period.
+
+Explain differences:
+
+Salary Revision
+Bonus
+Overtime
+LOP
+Tax Change
+Arrear
+Loan Recovery
+New Joiner
+Leaver
+
+==================================================
+44. PAYROLL EXPLAINER
+==================================================
+
+Major product differentiator.
+
+For each employee answer:
+
+Why is Gross X?
+
+Why is Net Y?
+
+Why did salary change?
+
+Why was this deduction applied?
+
+Which attendance/leave inputs affected pay?
+
+Which formula/rule applied?
+
+==================================================
+45. PAYROLL DIFFERENCE VIEW
+==================================================
+
+Example:
+
+Previous Net:
+₹75,400
+
+Current Net:
+₹69,800
+
+Difference:
+-₹5,600
+
+Drivers:
+
+Unpaid Leave
+-₹3,200
+
+Tax Adjustment
+-₹1,400
+
+Loan Recovery
+-₹1,000
+
+Use equivalent currency formatting per locale.
+
+==================================================
+46. PAYROLL SIMULATOR
+==================================================
+
+Authorized users can simulate:
+
+Salary Revision
+Policy Change
+Component Formula Change
+Statutory Rule Change
+Bonus
+LOP
+
+Simulation must never mutate live payroll.
+
+==================================================
+47. SALARY REVISION PREVIEW
+==================================================
+
+Before approval show:
+
+Current Compensation
+New Compensation
+Effective Date
+Monthly Impact
+Annual Impact
+Retro Estimate
+
+==================================================
+48. PAYROLL COMPARISON
+==================================================
+
+Support payroll-run comparison:
+
+Current vs Previous
+Draft vs Approved
+Recalculation Before vs After
+
+==================================================
+49. MAKER-CHECKER
+==================================================
+
+Sensitive operations may require:
+
+Maker
+Reviewer
+Approver
+
+Examples:
+
+Payroll Approval
+Bank File Generation
+Unlock Payroll
+Bulk Salary Change
+Manual Net-Pay Adjustment
+
+==================================================
+50. PAYROLL APPROVAL
+==================================================
+
+Use centralized approval architecture.
+
+Do not create disconnected approval infrastructure.
+
+==================================================
+51. PAYROLL LOCK
+==================================================
+
+Approved payroll can be locked.
+
+After lock:
+
+Ordinary recalculation prohibited.
+
+Corrections require controlled adjustment/reopen.
+
+==================================================
+52. REOPEN
+==================================================
+
+Authorized reopen requires:
+
+Reason
+Permission
+Approval where configured
+Audit
+
+Track all post-lock changes.
+
+==================================================
+53. PAYSLIPS
+==================================================
+
+Generate secure employee payslips.
+
+Support:
+
+Tenant Branding
+Country-Specific Sections
+Earnings
+Deductions
+Employer Contributions where configured
+YTD Values
+Bank Masking
+Employee Details
+Payroll Period
+
+==================================================
+54. PAYSLIP VERSIONING
+==================================================
+
+If payroll is corrected after payslip generation:
+
+Retain version/history.
+
+Do not silently replace without trace.
+
+==================================================
+55. PAYSLIP ACCESS
+==================================================
+
+Employee Self-Service:
+
+Current Payslip
+Historical Payslips
+Download
+
+Secure access is mandatory.
+
+==================================================
+56. BANK PAYMENT INSTRUCTIONS
+==================================================
+
+Generate payment instructions from approved payroll.
+
+Support provider/country-specific adapters.
+
+Do not hard-code one bank format.
+
+==================================================
+57. BANK FILE GENERATION
+==================================================
+
+Create configurable adapter architecture.
+
+Track:
+
+Generated By
+Generated At
+Payroll Run
+File Version
+Employee Count
+Total Amount
+Status
+
+Treat bank files as highly sensitive.
+
+==================================================
+58. PAYMENT STATUS
+==================================================
+
+Support:
+
+Not Prepared
+Prepared
+Submitted
+Processing
+Paid
+Failed
+Partially Paid
+
+Do not claim bank payment succeeded unless confirmed by appropriate integration/manual process.
+
+==================================================
+59. ACCOUNTING INTEGRATION FOUNDATION
+==================================================
+
+Generate payroll accounting outputs.
+
+Support mappings:
+
+Component → Ledger Account
+Cost Center
+Department
+Legal Entity
+Location
+
+Prepare journal export/API architecture.
+
+==================================================
+60. COST ALLOCATION
+==================================================
+
+Prepare allocation across:
+
+Cost Centers
+Departments
+Projects Future
+Legal Entities
+
+Do not overbuild project accounting.
+
+==================================================
+61. FULL & FINAL SETTLEMENT
+==================================================
+
+Build settlement engine foundation.
+
+Inputs may include:
+
+Salary Through Last Working Date
+Unpaid Leave
+Leave Encashment
+Bonus
+Notice Pay
+Recovery
+Loan
+Advance
+Benefit Recovery
+Other Adjustments
+
+Country rules remain configurable.
+
+==================================================
+62. FINAL SETTLEMENT EXPLAINER
+==================================================
+
+Show each component contributing to settlement.
+
+==================================================
+63. OFF-CYCLE PAYROLL
+==================================================
+
+Support:
+
+Correction
+Bonus
+Settlement
+Emergency Payment
+Special Run
+
+Keep separate from regular payroll while preserving reporting.
+
+==================================================
+64. NEW JOINERS
+==================================================
+
+Handle:
+
+Mid-period Joining
+Missing Bank
+Missing Statutory Data
+Salary Effective Date
+Proration
+
+Surface unresolved readiness issues.
+
+==================================================
+65. LEAVERS
+==================================================
+
+Handle:
+
+Last Working Date
+Payable Days
+Final Inputs
+Future Payment Restriction
+Settlement Reference
+
+==================================================
+66. EMPLOYEE TRANSFERS
+==================================================
+
+Handle country/legal-entity/payroll-group transfers without corrupting historical payroll.
+
+==================================================
+67. PAYROLL INPUT IMPORT
+==================================================
+
+Support CSV/XLSX:
+
+Mapping
+Preview
+Validation
+Duplicate Detection
+Error Rows
+Retry
+Import History
+
+==================================================
+68. COMPENSATION IMPORT
+==================================================
+
+Support controlled bulk compensation migration/change.
+
+Require preview and permissions.
+
+==================================================
+69. MASS SALARY REVISION
+==================================================
+
+Authorized HR can prepare mass revisions.
+
+Support:
+
+Percentage Increase
+Fixed Increase
+New Structure
+Effective Date
+Preview
+Approval
+Partial Errors
+
+==================================================
+70. SALARY REVISION LETTER FOUNDATION
+==================================================
+
+Prepare document-template integration for future compensation letters.
+
+==================================================
+71. PAYROLL OPERATIONS CENTER
+==================================================
+
+Create:
+
+PAYROLL COMMAND CENTER
+
+Show:
+
+Current Payroll Period
+Readiness
+Processing Status
+Blocking Errors
+Warnings
+Pending Approvals
+Variance Alerts
+Payment Status
+Payroll Locks
+Off-Cycle Runs
+
+Every problem should be actionable.
+
+==================================================
+72. PAYROLL CONFIDENCE
+==================================================
+
+Create deterministic readiness states:
+
+READY
+
+All mandatory inputs finalized.
+
+REVIEW REQUIRED
+
+Non-blocking anomalies exist.
+
+BLOCKED
+
+Mandatory information unresolved.
+
+PROCESSING
+
+Calculation underway.
+
+Never use opaque AI scoring.
+
+==================================================
+73. PAYROLL CONTROL TOTALS
+==================================================
+
+Show:
+
+Employee Count
+Gross Total
+Deduction Total
+Employer Cost
+Net Total
+Payment Total
+
+Use reconciliation to detect inconsistencies.
+
+==================================================
+74. RECONCILIATION
+==================================================
+
+Ensure:
+
+Payroll Net Total
+matches
+Payment Instruction Total
+
+and relevant accounting outputs reconcile according to configuration.
+
+==================================================
+75. EMPLOYEE 360
+==================================================
+
+Extend with permission-aware:
+
+Current Compensation
+Compensation History
+Payroll Status
+Payslips
+Benefits
+Loans/Advances
+
+Do not expose payroll data to unauthorized roles.
+
+==================================================
+76. ACTION & INTELLIGENCE LAYER
+==================================================
+
+Surface:
+
+Missing Compensation
+Missing Bank
+Payroll Cutoff Risk
+Attendance Not Locked
+Leave Not Finalized
+Large Pay Variance
+Failed Calculation
+Payment Failure
+
+Each finding contains:
+
+What
+Why
+Affected Records
+Severity
+Recommended Action
+Direct Action
+
+==================================================
+77. ORGANIZATION MEMORY
+==================================================
+
+Preserve:
+
+Which compensation applied
+Which formulas applied
+Which statutory pack applied
+Which attendance/leave inputs applied
+Who approved payroll
+Which bank file was generated
+Which accounting output was created
+
+==================================================
+78. PAYROLL DATA QUALITY
+==================================================
+
+Detect:
+
+Missing Payroll Group
+Overlapping Compensation
+Currency Conflict
+Missing Component
+Formula Error
+Missing Statutory Identifier
+Invalid Bank
+Duplicate Payroll Input
+Orphan Adjustment
+
+==================================================
+79. NOTIFICATIONS
+==================================================
+
+Examples:
+
+Payroll Input Required
+Payroll Approval Required
+Payslip Available
+Payment Failed
+Compensation Revision Approved
+
+Avoid exposing salary amounts in insecure notification channels.
+
+==================================================
+80. MY WORK
+==================================================
+
+Tasks:
+
+Review Payroll Exception
+Approve Payroll
+Approve Salary Revision
+Provide Missing Input
+Review Settlement
+Review Bank Failure
+
+==================================================
+81. DOMAIN EVENTS
+==================================================
+
+Create:
+
+CompensationAssigned
+CompensationRevised
+PayrollOpened
+PayrollCalculated
+PayrollValidationFailed
+PayrollApproved
+PayrollLocked
+PayrollReopened
+PayslipGenerated
+PaymentFileGenerated
+PayrollPaid
+SettlementCalculated
+
+==================================================
+82. API ARCHITECTURE
+==================================================
+
+Suggested groups:
+
+/api/v1/payroll/groups
+/api/v1/payroll/calendars
+/api/v1/payroll/periods
+/api/v1/payroll/runs
+/api/v1/payroll/runs/{run}/employees
+/api/v1/payroll/inputs
+/api/v1/payroll/adjustments
+/api/v1/payroll/validations
+/api/v1/payroll/payments
+/api/v1/payroll/payslips
+/api/v1/payroll/settlements
+/api/v1/compensation
+/api/v1/compensation/structures
+/api/v1/compensation/components
+/api/v1/compensation/revisions
+/api/v1/benefits
+/api/v1/payroll/country-packs
+/api/v1/payroll/simulations
+/api/v1/payroll/reports
+
+==================================================
+83. DATABASE FOUNDATION
+==================================================
+
+Design normalized tables for at least:
+
+payroll_country_packs
+payroll_country_pack_versions
+payroll_groups
+payroll_calendars
+payroll_periods
+salary_components
+salary_component_versions
+salary_structures
+salary_structure_components
+employee_compensations
+employee_compensation_components
+compensation_revisions
+payroll_runs
+payroll_run_employees
+payroll_inputs
+payroll_adjustments
+payroll_calculation_results
+payroll_result_components
+payroll_validation_issues
+payroll_locks
+payslips
+payment_batches
+payment_instructions
+bank_file_exports
+accounting_mappings
+accounting_exports
+employee_loans
+loan_installments
+employee_advances
+benefit_plans
+employee_benefit_enrollments
+settlement_runs
+payroll_simulation_runs
+
+==================================================
+84. SECURITY
+==================================================
+
+Payroll is among the most sensitive domains.
+
+Require:
+
+Strict Server Authorization
+Tenant Isolation
+Field Permissions
+Encryption where appropriate
+Secure Files
+Export Controls
+Audit
+Sensitive Access Logging
+Maker-Checker
+Short-Lived Download Links
+Mass-Action Protection
+
+==================================================
+85. PERFORMANCE
+==================================================
+
+Support large tenants and payroll batches.
+
+Use:
+
+Batch Calculation
+Queues
+Chunking
+Idempotent Jobs
+Transactions
+Indexes
+Retry Strategy
+
+A failed employee calculation should not unnecessarily destroy the entire run.
+
+==================================================
+86. TESTING
+==================================================
+
+Test:
+
+Tenant Isolation
+Component Formula
+Formula Version
+Proration
+Joiner
+Leaver
+Mid-Period Revision
+Attendance Input
+LOP
+Overtime
+Retro Pay
+Arrear
+Loan
+Benefit
+Country Pack Version
+Payroll Validation
+Recalculation
+Lock/Reopen
+Payslip
+Payment Reconciliation
+Settlement
+Data Scope
+Sensitive Permissions
+
+==================================================
+87. EDGE CASES
+==================================================
+
+Explicitly test:
+
+Zero Pay
+Negative Net
+Leap Year
+Different Pay Frequencies
+Currency Change
+Country Transfer
+Legal Entity Transfer
+Backdated Salary Revision
+Attendance Correction After Cutoff
+Leave Approval After Cutoff
+Employee Rehired
+Multiple Revisions Same Period
+Retro Across Tax Year
+Off-Cycle Payment
+Final Settlement After Payroll Close
+
+==================================================
+88. UNIQUE VALUE — PAYROLL EXPLAINABILITY
+==================================================
+
+Every important payroll number must be traceable.
+
+Avoid black-box payroll.
+
+Authorized users should be able to move from:
+
+Net Pay
+
+→ Component
+
+→ Formula
+
+→ Input
+
+→ Attendance/Leave/Compensation Source
+
+→ Rule Version
+
+==================================================
+89. UNIQUE VALUE — PAYROLL IMPACT PREVIEW
+==================================================
+
+Before important changes show projected impact.
+
+Example:
+
+Salary Structure Change
+
+Employees affected: 842
+
+Estimated Monthly Gross Change: X
+
+Employees with validation issues: 14
+
+No live payroll changes until confirmed.
+
+==================================================
+90. UNIQUE VALUE — PAYROLL READINESS MAP
+==================================================
+
+Show readiness by:
+
+Legal Entity
+Location
+Payroll Group
+Department
+
+Example:
+
+India Monthly
+98% Ready
+
+UK Monthly
+Blocked — 3 Missing Tax Records
+
+Singapore Monthly
+Ready
+
+Percentages must derive from explicit completeness conditions.
+
+==================================================
+91. UNIQUE VALUE — PAYROLL CHANGE STORY
+==================================================
+
+For each employee provide chronological explanation:
+
+Salary Revised
+
+Attendance Finalized
+
+LOP Added
+
+Bonus Imported
+
+Payroll Calculated
+
+Tax Applied
+
+Payroll Approved
+
+Payslip Generated
+
+This connects payroll to Organization Memory.
+
+==================================================
+92. UNIQUE VALUE — COMPENSATION INSIGHT FOUNDATION
+==================================================
+
+Prepare architecture for future compensation analytics:
+
+Salary Bands
+Compa-Ratio
+Internal Equity
+Range Penetration
+Compensation History
+
+Do not implement opaque recommendations or discriminatory pay decisions.
+
+==================================================
+93. RESPONSIVE UX
+==================================================
+
+Employee mobile:
+
+Payslips
+Compensation Summary
+Benefits
+Loan Summary
+
+Admin payroll processing should prioritize desktop/tablet operational UX.
+
+Do not squeeze complex payroll grids onto phones.
+
+==================================================
+94. PHASE 5 COMPLETION REPORT
+==================================================
+
+Report:
+
+Architecture
+Country-Pack Architecture
+Database
+Payroll Engine
+Formula Engine
+Compensation Engine
+Retro/Arrear Engine
+Benefits Foundation
+Settlement Engine
+APIs
+Frontend
+Payroll Command Center
+Payroll Explainer
+Payment Outputs
+Accounting Outputs
+Security
+Tests
+Known Issues
+Technical Debt
+Phase 6 Readiness
+
+==================================================
+PHASE 5 SUCCESS CRITERIA
+==================================================
+
+The system must reliably answer:
+
+Who should be paid?
+
+Under which payroll group?
+
+Which compensation applies?
+
+Which attendance and leave inputs apply?
+
+Which statutory rules apply?
+
+How was every earning/deduction calculated?
+
+Why did pay change?
+
+Are payroll inputs complete?
+
+Can payroll safely be approved?
+
+Do payment totals reconcile?
+
+Can historical payroll be reproduced?
+
+Payroll must be:
+
+Deterministic
+Decimal-Safe
+Versioned
+Auditable
+Explainable
+Multi-Country
+Tenant-Isolated
+Permission-Secure
+Historically Reproducible
+
+DO NOT START PHASE 6.

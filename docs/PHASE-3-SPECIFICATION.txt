@@ -1,0 +1,2866 @@
+# HRM MASTER SPECIFICATION
+
+## PHASE 3 — ATTENDANCE, SHIFTS & TIME OFFICE
+
+Continue from completed Phase 1 and Phase 2.
+
+The product remains:
+
+- Multi-country from Day 1
+- Multi-tenant SaaS
+- Enterprise-capable
+- Designed to compete with leading HRMS platforms such as Keka
+- API-first
+- Permission-aware
+- Workflow-ready
+- Audit-first
+- Mobile-responsive
+- Automation-ready
+
+Do NOT rebuild Phase 1 or Phase 2 foundations.
+
+Reuse:
+
+- Authentication
+- Tenant isolation
+- RBAC
+- Data scopes
+- Field-level permissions
+- Organization structures
+- Employee master
+- Effective-dated employee assignments
+- Design system
+- Application shell
+- My Work
+- Notifications
+- Audit framework
+- Employee 360
+- People Action Center
+- Organization Memory
+- Domain events
+- Settings framework
+- Country configuration
+
+Do NOT start:
+
+- Payroll processing
+- Full Leave Management
+- Recruitment
+- Performance
+- Learning
+- Expenses
+
+However, attendance must be designed so Payroll and Leave can consume finalized attendance data later.
+
+==================================================
+1. TIME & ATTENDANCE DOMAIN
+==================================================
+
+Create a dedicated Time & Attendance domain.
+
+Core concepts:
+
+Attendance Policy
+Attendance Day
+Attendance Event
+Punch
+Shift
+Shift Assignment
+Shift Rotation
+Roster
+Work Schedule
+Work Week
+Break Policy
+Grace Rule
+Late Arrival
+Early Departure
+Overtime
+Attendance Exception
+Attendance Regularization
+Attendance Approval
+Attendance Lock
+Holiday Calendar
+Weekly Off
+Attendance Source
+Device
+Geofence
+Attendance Adjustment
+
+Separate raw attendance events from calculated attendance results.
+
+Never modify original punch events merely to make calculated attendance correct.
+
+==================================================
+2. CORE ARCHITECTURAL PRINCIPLE
+==================================================
+
+Use three conceptual layers:
+
+Layer 1:
+RAW TIME EVENTS
+
+Examples:
+
+Punch In
+Punch Out
+Biometric Punch
+Mobile Check-In
+Web Check-In
+Imported Punch
+API Punch
+
+Layer 2:
+ATTENDANCE CALCULATION
+
+Determine:
+
+First In
+Last Out
+Work Duration
+Break Duration
+Late
+Early Exit
+Overtime
+Missing Punch
+Shift
+Attendance Status
+
+Layer 3:
+FINALIZED ATTENDANCE
+
+Approved/locked attendance result consumed by future:
+
+Payroll
+Leave
+Compliance
+Analytics
+
+This separation is mandatory.
+
+==================================================
+3. TIMEZONE ARCHITECTURE
+==================================================
+
+Time handling must be production-grade.
+
+Store timestamps consistently.
+
+Support:
+
+Tenant timezone
+Location timezone
+Employee timezone
+Device timezone
+Shift timezone
+
+An employee may work in a different timezone from company headquarters.
+
+DST must be handled correctly.
+
+Do NOT calculate attendance by simply comparing browser-local times.
+
+Preserve original timezone/context where useful.
+
+==================================================
+4. WORK WEEK
+==================================================
+
+Build configurable Work Week architecture.
+
+Examples:
+
+Monday-Friday
+Monday-Saturday
+Sunday-Thursday
+Custom
+
+Each day can be:
+
+Full Working Day
+Half Day
+Weekly Off
+Custom Duration
+
+Support effective dating.
+
+Different employee groups may have different work weeks.
+
+==================================================
+5. HOLIDAY CALENDARS
+==================================================
+
+Create Holiday Calendar management.
+
+Support:
+
+Country
+Region/State
+Location
+Legal Entity
+Employee Group
+
+Holiday fields:
+
+Name
+Date
+Type
+Description
+Optional Holiday
+Mandatory Holiday
+Half-Day Holiday
+Recurring Rule where appropriate
+
+Support multiple holiday calendars.
+
+Employee assignment must be effective-dated.
+
+Future Leave module must consume this architecture.
+
+==================================================
+6. SHIFT MANAGEMENT
+==================================================
+
+Create advanced shift definitions.
+
+Fields:
+
+Shift Name
+Shift Code
+Timezone
+Start Time
+End Time
+Duration
+Cross-Midnight
+Break Rules
+Grace Period
+Late Rules
+Early Exit Rules
+Minimum Hours
+Half-Day Hours
+Full-Day Hours
+Overtime Eligibility
+Overtime Rules
+Punch Window
+Flexible Start
+Flexible End
+Core Hours
+Weekly Off Configuration
+
+Examples:
+
+General Shift
+Morning Shift
+Evening Shift
+Night Shift
+Flexible Shift
+Split Shift
+
+==================================================
+7. CROSS-MIDNIGHT SHIFTS
+==================================================
+
+Correctly support shifts such as:
+
+10:00 PM → 6:00 AM
+
+Attendance must belong to the correct logical attendance date.
+
+Do not incorrectly create two attendance days simply because midnight was crossed.
+
+==================================================
+8. FLEXIBLE SHIFTS
+==================================================
+
+Support flexible work schedules.
+
+Examples:
+
+Employee may start between 8:00 AM and 10:00 AM.
+
+Must work 8 hours.
+
+Core hours may be:
+
+11:00 AM → 3:00 PM.
+
+Support:
+
+Flexible start window
+Required duration
+Core hours
+Flexible end
+Break rules
+
+==================================================
+9. SPLIT SHIFTS
+==================================================
+
+Prepare support for split shifts.
+
+Example:
+
+8:00 AM → 12:00 PM
+
+and
+
+4:00 PM → 8:00 PM
+
+Attendance engine must be able to calculate multiple scheduled work segments.
+
+==================================================
+10. SHIFT ASSIGNMENT
+==================================================
+
+Assign shifts by:
+
+Employee
+Department
+Team
+Location
+Business Unit
+Employee Type
+Legal Entity
+Group
+
+Assignments must support:
+
+Effective From
+Effective To
+Priority
+Override
+
+Individual employee assignment should override broader assignments according to deterministic rules.
+
+==================================================
+11. SHIFT ROTATION
+==================================================
+
+Create rotating shift patterns.
+
+Examples:
+
+Morning → Morning → Evening → Evening → Off
+
+Weekly Rotation
+
+14-day Rotation
+
+Custom cycle
+
+Support:
+
+Rotation Pattern
+Cycle Length
+Start Date
+Employee Assignment
+Group Assignment
+
+==================================================
+12. ROSTER MANAGEMENT
+==================================================
+
+Build visual roster management.
+
+Views:
+
+Daily
+Weekly
+Monthly
+
+Support:
+
+Employees
+Teams
+Departments
+Locations
+
+Actions:
+
+Assign Shift
+Change Shift
+Copy Schedule
+Bulk Assign
+Publish
+Unpublish
+Clear Assignment
+
+Provide clear visual distinction between:
+
+Draft roster
+Published roster
+Changed roster
+
+==================================================
+13. ROSTER VERSIONING
+==================================================
+
+Published schedules must retain history.
+
+If HR changes a previously published roster:
+
+Store:
+
+Previous Shift
+New Shift
+Changed By
+Changed At
+Reason
+Effective Date
+
+Do not silently overwrite historical roster information.
+
+==================================================
+14. EMPLOYEE SHIFT VIEW
+==================================================
+
+Employees can view:
+
+Today's Shift
+Upcoming Shifts
+Weekly Schedule
+Monthly Schedule
+Shift Timing
+Location
+Weekly Off
+Holiday
+
+Mobile view must be optimized for quick understanding.
+
+==================================================
+15. SHIFT SWAP FOUNDATION
+==================================================
+
+Prepare controlled shift swaps.
+
+Employee can request:
+
+Swap with colleague
+Change shift
+Request alternate shift
+
+Support:
+
+Eligibility
+Requested Employee
+Requested Shift
+Reason
+Manager Approval
+Status
+
+Integrate:
+
+My Work
+Notifications
+Audit
+
+Do not allow swaps that violate configured restrictions.
+
+==================================================
+16. ATTENDANCE POLICIES
+==================================================
+
+Create configurable Attendance Policies.
+
+Policy can define:
+
+Attendance Method
+Required Work Hours
+Minimum Full Day Hours
+Minimum Half Day Hours
+Late Rules
+Early Exit Rules
+Grace
+Break Rules
+Missing Punch Rules
+Overtime Rules
+Regularization Rules
+Weekend Rules
+Holiday Rules
+Remote Work Rules
+Punch Restrictions
+
+Policies must be effective-dated.
+
+==================================================
+17. POLICY ASSIGNMENT
+==================================================
+
+Assign attendance policies based on:
+
+Legal Entity
+Business Unit
+Department
+Location
+Employee Type
+Employee
+Custom Employee Group
+
+Create deterministic resolution priority.
+
+Never allow ambiguous policy resolution.
+
+==================================================
+18. ATTENDANCE METHODS
+==================================================
+
+Support configurable attendance methods:
+
+Web
+Mobile
+Biometric
+Imported
+API
+Admin Entry
+Kiosk
+Future Integration
+
+Tenant may enable/disable methods.
+
+Employee/group eligibility can differ.
+
+==================================================
+19. WEB CHECK-IN / CHECK-OUT
+==================================================
+
+Create secure web attendance.
+
+Employee can:
+
+Check In
+Check Out
+
+Show:
+
+Current Status
+Last Punch
+Today's Shift
+Worked Duration
+Expected End Time where appropriate
+
+Prevent obvious duplicate punches.
+
+Do not trust browser time as authoritative.
+
+Use server time.
+
+==================================================
+20. MOBILE ATTENDANCE FOUNDATION
+==================================================
+
+Design APIs/UI for mobile attendance.
+
+Support future/native:
+
+Check-In
+Check-Out
+Location
+Device Context
+Photo Verification
+Geofence
+
+Do not make the web implementation dependent on a native mobile app.
+
+==================================================
+21. GEOFENCING
+==================================================
+
+Create geofence architecture.
+
+A location can define:
+
+Latitude
+Longitude
+Allowed Radius
+
+Support multiple permitted zones.
+
+Policies can require:
+
+Inside Geofence
+Anywhere
+Remote Work
+Approved Location
+
+Record location context where legally and organizationally permitted.
+
+Do NOT continuously track employees.
+
+Capture location only for relevant attendance actions according to policy.
+
+==================================================
+22. LOCATION PRIVACY
+==================================================
+
+Location attendance data is sensitive.
+
+Implement:
+
+Explicit tenant configuration
+Permission control
+Purpose limitation
+Audit
+Retention configuration
+
+Do not expose precise coordinates to ordinary managers unless authorized.
+
+==================================================
+23. DEVICE MANAGEMENT
+==================================================
+
+Prepare attendance device architecture.
+
+Device fields:
+
+Device ID
+Name
+Vendor
+Type
+Location
+Timezone
+Status
+Last Sync
+Configuration Reference
+
+Support future:
+
+Biometric
+RFID
+Face Terminal
+Kiosk
+
+Do not tightly couple attendance logic to one hardware vendor.
+
+==================================================
+24. DEVICE CONNECTOR ARCHITECTURE
+==================================================
+
+Create adapter architecture for future device vendors.
+
+Concept:
+
+AttendanceDeviceProvider
+
+Possible implementations later:
+
+Vendor A
+Vendor B
+Generic API
+File Import
+
+Normalize device events into the internal raw punch format.
+
+==================================================
+25. RAW PUNCH MODEL
+==================================================
+
+Each punch should support:
+
+Employee
+Timestamp
+Direction
+Source
+Device
+Location
+Timezone
+Latitude/Longitude where permitted
+IP where applicable
+Device Identifier
+External Reference
+Imported At
+Raw Metadata
+Verification Status
+
+Original raw punch data should be immutable except controlled correction metadata.
+
+==================================================
+26. PUNCH DIRECTION
+==================================================
+
+Support:
+
+IN
+OUT
+UNKNOWN
+
+Some biometric systems do not reliably provide direction.
+
+Attendance engine must support pairing strategies for unordered punches.
+
+==================================================
+27. PUNCH DEDUPLICATION
+==================================================
+
+Prevent duplicate events from:
+
+Repeated device sync
+API retry
+Import retry
+Employee double click
+
+Use:
+
+External event identifiers
+Idempotency keys
+Time-window rules where appropriate
+
+Never silently remove legitimate distinct punches.
+
+==================================================
+28. ATTENDANCE CALCULATION ENGINE
+==================================================
+
+Create a deterministic attendance calculation engine.
+
+Inputs:
+
+Employee
+Attendance Date
+Shift
+Work Week
+Holiday
+Attendance Policy
+Raw Punches
+Approved Adjustments
+Future Leave Data
+
+Outputs:
+
+Attendance Status
+First In
+Last Out
+Gross Duration
+Break Duration
+Net Work Duration
+Late Duration
+Early Exit Duration
+Overtime
+Missing Punch
+Exception Codes
+
+Calculation must be reproducible.
+
+==================================================
+29. CALCULATION VERSIONING
+==================================================
+
+Attendance calculation rules will evolve.
+
+Store calculation version/reference.
+
+Historical attendance should be explainable.
+
+Do not silently reinterpret finalized historical attendance after policy changes.
+
+==================================================
+30. ATTENDANCE STATUS
+==================================================
+
+Support standard statuses:
+
+Present
+Absent
+Half Day
+Weekly Off
+Holiday
+Leave Placeholder
+On Duty
+Remote Work
+Missing Punch
+Incomplete
+Not Scheduled
+
+Allow configurable display labels without destroying standardized internal meanings.
+
+==================================================
+31. ATTENDANCE EXCEPTIONS
+==================================================
+
+Create exception framework.
+
+Examples:
+
+Late Arrival
+Early Departure
+Missing In Punch
+Missing Out Punch
+Insufficient Hours
+Unexpected Punch
+Outside Geofence
+Unscheduled Work
+Excessive Break
+Overtime
+Shift Mismatch
+
+Exception should contain:
+
+Type
+Severity
+Employee
+Attendance Date
+Detected At
+Status
+Resolution
+Source Rule
+
+==================================================
+32. EXCEPTION SEVERITY
+==================================================
+
+Support:
+
+Info
+Warning
+Action Required
+Critical
+
+Do not mark normal operational exceptions as critical unnecessarily.
+
+==================================================
+33. ATTENDANCE REGULARIZATION
+==================================================
+
+Employee can request correction.
+
+Examples:
+
+Forgot Check-In
+Forgot Check-Out
+Wrong Punch
+Worked Offsite
+Attendance Incorrect
+Client Visit
+Official Duty
+
+Request contains:
+
+Attendance Date
+Current Attendance
+Requested In
+Requested Out
+Reason
+Attachment
+Comments
+
+==================================================
+34. REGULARIZATION WORKFLOW
+==================================================
+
+Regularization must integrate with centralized workflow architecture.
+
+Possible flow:
+
+Employee
+→ Manager
+→ HR
+
+or
+
+Employee
+→ Manager
+
+or configurable future workflow.
+
+Integrate:
+
+My Work
+Notifications
+Audit
+
+Approved regularization triggers recalculation.
+
+==================================================
+35. MANUAL ATTENDANCE ADJUSTMENT
+==================================================
+
+Authorized HR/Admin users may adjust attendance.
+
+Require:
+
+Reason
+Before Value
+After Value
+Changed By
+Timestamp
+
+Sensitive adjustments may require maker-checker approval.
+
+Never overwrite raw punches.
+
+==================================================
+36. LATE ARRIVAL RULES
+==================================================
+
+Support:
+
+Grace Minutes
+Allowed Late Occurrences
+Late Duration
+Monthly Threshold
+Penalty Reference
+Escalation
+
+Example:
+
+Shift starts 9:00.
+
+Grace until 9:10.
+
+Arrival 9:08 → On Time.
+
+Arrival 9:18 → Late 8 minutes beyond grace or 18 minutes according to configurable calculation.
+
+Rule semantics must be explicit.
+
+==================================================
+37. EARLY DEPARTURE
+==================================================
+
+Support similar rules for leaving before scheduled end.
+
+Allow:
+
+Grace
+Occurrences
+Threshold
+Exception
+Future payroll/leave consequence reference
+
+==================================================
+38. BREAK MANAGEMENT
+==================================================
+
+Support:
+
+Paid Break
+Unpaid Break
+Fixed Break
+Punch-Based Break
+Automatic Deduction
+Multiple Breaks
+
+Examples:
+
+Lunch
+Tea Break
+Meal Break
+
+Attendance engine calculates net work hours correctly.
+
+==================================================
+39. MISSING PUNCH
+==================================================
+
+Detect:
+
+Missing IN
+Missing OUT
+Unpaired Punch
+
+Do not automatically invent times unless tenant explicitly configures an approved rule.
+
+Surface as actionable exception.
+
+==================================================
+40. OVERTIME FOUNDATION
+==================================================
+
+Build overtime calculation foundation.
+
+Do NOT implement payroll payment.
+
+Support:
+
+Pre-shift OT
+Post-shift OT
+Weekly Off OT
+Holiday OT
+Rest Day OT
+
+Rules:
+
+Minimum OT
+Rounding
+Maximum OT
+Approval Required
+Eligible Employee Groups
+Grace
+Threshold
+
+Store calculated and approved OT separately where needed.
+
+==================================================
+41. OVERTIME REQUEST
+==================================================
+
+Support:
+
+Pre-approval
+Post-work approval
+Manager initiated
+Employee initiated
+
+Fields:
+
+Date
+Requested Duration
+Reason
+Approved Duration
+Approver
+Status
+
+Integrate My Work and Notifications.
+
+==================================================
+42. ATTENDANCE DAY
+==================================================
+
+Create canonical daily attendance record.
+
+Suggested data:
+
+Employee
+Attendance Date
+Shift
+Policy
+First In
+Last Out
+Gross Hours
+Break Hours
+Net Hours
+Late
+Early Exit
+Overtime
+Status
+Exceptions
+Calculation Version
+Finalization Status
+
+Avoid duplicating raw event data unnecessarily.
+
+==================================================
+43. ATTENDANCE CALENDAR
+==================================================
+
+Employee calendar should show:
+
+Present
+Absent
+Half Day
+Holiday
+Weekly Off
+Leave Placeholder
+Missing Punch
+Regularization Pending
+Late
+Overtime
+
+Clicking a day opens details.
+
+==================================================
+44. MY ATTENDANCE
+==================================================
+
+Create employee self-service attendance page.
+
+Sections:
+
+Today
+Calendar
+Attendance History
+Regularization
+Overtime
+Shift Schedule
+
+Useful summary:
+
+Worked Today
+Expected Hours
+Current Shift
+Last Punch
+Attendance Exceptions
+
+Do not overload with decorative analytics.
+
+==================================================
+45. TEAM ATTENDANCE
+==================================================
+
+Manager page:
+
+Who's In
+Who's Absent
+Who's Late
+Who's On Leave Placeholder
+Who's Remote
+Missing Punches
+Pending Regularizations
+
+Respect manager data scope.
+
+==================================================
+46. ATTENDANCE ADMIN CONSOLE
+==================================================
+
+Create HR Time Office console.
+
+Provide:
+
+Daily Attendance
+Exceptions
+Regularizations
+Overtime
+Shift/Roster
+Devices
+Imports
+Processing Status
+Locks
+Policies
+
+This should become the operational center for attendance administrators.
+
+==================================================
+47. ATTENDANCE PROCESSING
+==================================================
+
+Attendance processing may run:
+
+On Punch
+On Demand
+Scheduled
+After Device Sync
+After Regularization
+Nightly Recalculation
+
+Use queued/background processing where appropriate.
+
+Prevent concurrent processing corruption.
+
+==================================================
+48. RECALCULATION
+==================================================
+
+Authorized users may recalculate attendance.
+
+Scopes:
+
+Employee + Date
+Employee + Range
+Department + Date
+Location + Date
+Tenant + Date
+
+Large recalculation must run asynchronously.
+
+Show:
+
+Queued
+Processing
+Completed
+Failed
+Partial Failure
+
+==================================================
+49. ATTENDANCE LOCKING
+==================================================
+
+Create attendance lock periods.
+
+Example:
+
+September attendance finalized on October 3.
+
+After lock:
+
+Ordinary edits prohibited.
+
+Corrections require controlled unlock/adjustment workflow.
+
+Future payroll can depend on locked attendance.
+
+==================================================
+50. LOCK HIERARCHY
+==================================================
+
+Support lock by:
+
+Tenant
+Legal Entity
+Payroll Group
+Location
+Employee Group
+Date Range
+
+Design carefully to prevent conflicting locks.
+
+==================================================
+51. PAYROLL-READY ATTENDANCE OUTPUT
+==================================================
+
+Create future payroll interface.
+
+Provide normalized attendance outputs such as:
+
+Payable Days
+Present Days
+Absent Days
+Half Days
+Weekly Off
+Holiday
+Approved Leave Placeholder
+Unpaid Time Placeholder
+Approved OT
+Late/Early Exceptions
+
+Do NOT calculate salary.
+
+==================================================
+52. LEAVE-READY INTEGRATION
+==================================================
+
+Prepare attendance for future Leave module.
+
+Leave can affect:
+
+Attendance Status
+Expected Hours
+Half Day
+Partial Day
+Holiday Interaction
+Weekly Off Interaction
+
+Use integration contracts/events.
+
+Do not hard-code unfinished Leave logic.
+
+==================================================
+53. ON DUTY / BUSINESS DUTY
+==================================================
+
+Support On Duty foundation.
+
+Examples:
+
+Client Visit
+Field Work
+Training
+Official Travel
+
+Employee/manager may request On Duty.
+
+Fields:
+
+Date/Time
+Reason
+Location
+Attachment
+Approver
+Status
+
+Approved On Duty influences attendance calculation.
+
+==================================================
+54. REMOTE WORK FOUNDATION
+==================================================
+
+Support Remote Work attendance context.
+
+Track:
+
+Work Mode
+Approved Remote Status
+Check-In Source
+Policy
+
+Do not confuse Remote Work with Leave.
+
+==================================================
+55. ATTENDANCE IMPORT
+==================================================
+
+Support attendance import:
+
+CSV
+XLSX
+
+Provide:
+
+Template
+Mapping
+Preview
+Validation
+Employee Matching
+Timezone Handling
+Duplicate Detection
+Error Rows
+Retry
+
+Large imports run in background.
+
+==================================================
+56. DEVICE EVENT IMPORT
+==================================================
+
+Create dedicated import pipeline for device punches.
+
+Support:
+
+Employee Code Mapping
+Device Mapping
+Timestamp Parsing
+Timezone
+Direction
+External Event ID
+
+Preserve original imported values for audit/debugging.
+
+==================================================
+57. EMPLOYEE-DEVICE MAPPING
+==================================================
+
+Support mapping:
+
+Employee
+Device Employee ID
+Device
+Effective Dates
+
+One employee may exist on multiple devices.
+
+==================================================
+58. ATTENDANCE CORRECTION HISTORY
+==================================================
+
+Show understandable history:
+
+Original Result
+
+Regularization Requested
+
+Manager Approved
+
+Attendance Recalculated
+
+HR Adjusted
+
+Attendance Locked
+
+Keep technical audit logs separately.
+
+==================================================
+59. ATTENDANCE APPROVAL INBOX
+==================================================
+
+Do NOT create a disconnected approval engine.
+
+Use My Work.
+
+Provide attendance-focused filtered view for:
+
+Regularization
+Overtime
+On Duty
+Shift Swap
+Attendance Correction
+
+==================================================
+60. NOTIFICATIONS
+==================================================
+
+Examples:
+
+Forgot Check-Out
+Missing Punch
+Regularization Submitted
+Regularization Approved
+Regularization Rejected
+Overtime Pending
+Shift Changed
+Roster Published
+Upcoming Shift
+Attendance Locked
+
+Notification rules should be configurable later.
+
+Avoid notification spam.
+
+==================================================
+61. REMINDERS
+==================================================
+
+Prepare reminders such as:
+
+Check-Out Reminder
+Missing Punch Reminder
+Regularization Deadline
+Roster Published
+Shift Starting Soon
+
+Use centralized scheduling/notification architecture.
+
+==================================================
+62. MY WORK INTEGRATION
+==================================================
+
+Generate tasks for actionable attendance events.
+
+Examples:
+
+Approve Regularization
+Approve OT
+Resolve Missing Punch
+Publish Roster
+Review Critical Exception
+Approve Shift Swap
+
+Each task should link directly to the relevant action context.
+
+==================================================
+63. EMPLOYEE 360 INTEGRATION
+==================================================
+
+Extend Employee 360 with Attendance context.
+
+Show useful information such as:
+
+Today's Attendance
+Current Shift
+Recent Exceptions
+Attendance Regularizations
+Upcoming Shifts
+
+Later phases may add trends.
+
+Do not make unsupported behavioral judgments about employees.
+
+==================================================
+64. PEOPLE ACTION CENTER INTEGRATION
+==================================================
+
+Surface organization-level attendance issues.
+
+Examples:
+
+24 Missing Punches Need Resolution
+
+8 Regularizations Await Approval
+
+4 Employees Have Repeated Shift Mismatches
+
+12 Employees Have No Shift Assigned Tomorrow
+
+3 Devices Have Not Synced
+
+Every finding should lead to an action.
+
+==================================================
+65. ATTENDANCE COMMAND CENTER
+==================================================
+
+Create a distinctive operational view:
+
+TIME OFFICE COMMAND CENTER
+
+Purpose:
+
+Give HR/time-office administrators one screen to understand today's operational situation.
+
+Possible sections:
+
+Attendance Processing Health
+
+Employees Scheduled Today
+
+Currently Checked In
+
+Missing Punches
+
+Late Arrivals
+
+Unscheduled Employees
+
+Device Sync Issues
+
+Pending Regularizations
+
+Roster Gaps
+
+Overtime Awaiting Approval
+
+Attendance Lock Status
+
+This is operational, not decorative analytics.
+
+==================================================
+66. EXPLAINABLE ATTENDANCE
+==================================================
+
+Major unique-value feature.
+
+For each attendance day provide:
+
+"Why is this attendance marked this way?"
+
+Example:
+
+Status: Half Day
+
+Explanation:
+
+Scheduled Shift:
+09:00–18:00
+
+Required Full Day:
+8h
+
+Required Half Day:
+4h
+
+Actual Net Work:
+5h 12m
+
+Late:
+42m
+
+Policy:
+India General Attendance Policy v3
+
+Result:
+Half Day
+
+Users should not need HR technical knowledge to understand attendance calculations.
+
+==================================================
+67. ATTENDANCE RULE TRACE
+==================================================
+
+Store enough information to reconstruct:
+
+Which policy applied?
+
+Which shift applied?
+
+Which holiday calendar applied?
+
+Which punches were used?
+
+Which break rule applied?
+
+Which grace rule applied?
+
+Which adjustments were approved?
+
+Which calculation version produced the result?
+
+This supports disputes, audits and payroll confidence.
+
+==================================================
+68. ATTENDANCE HEALTH ENGINE
+==================================================
+
+Extend the HR Data Quality Engine.
+
+Detect operational problems such as:
+
+Employee has no attendance policy
+
+Employee has no shift
+
+Invalid shift assignment
+
+Overlapping shift assignments
+
+Device employee mapping missing
+
+Punch timezone suspicious
+
+Excessive duplicate events
+
+Unresolved missing punches
+
+Attendance not processed
+
+Attendance unlocked near payroll cutoff
+
+Holiday calendar missing
+
+Do not automatically change employee records.
+
+==================================================
+69. SMART EXCEPTION PRIORITIZATION
+==================================================
+
+Prioritize exceptions using deterministic business context.
+
+Example:
+
+Critical:
+Attendance not finalized before payroll cutoff.
+
+Action Required:
+Missing punch preventing attendance finalization.
+
+Warning:
+Repeated late arrivals.
+
+Info:
+Approved overtime recorded.
+
+Do not use opaque AI scoring for disciplinary conclusions.
+
+==================================================
+70. ATTENDANCE POLICY SIMULATOR
+==================================================
+
+Create architecture for an advanced differentiator:
+
+POLICY SIMULATOR
+
+Before publishing a changed attendance policy, authorized HR users should eventually be able to test it against historical/sample attendance.
+
+Example:
+
+"If grace changes from 10 to 5 minutes, how many attendance records would have changed last month?"
+
+Phase 3 should implement the underlying reusable calculation architecture required for this capability.
+
+If feasible within Phase 3, create a basic preview mode.
+
+Simulation must NEVER modify actual attendance.
+
+==================================================
+71. POLICY VERSIONING
+==================================================
+
+Policies must be version-aware.
+
+When HR changes important rules:
+
+Do not silently mutate the policy that historically applied.
+
+Support:
+
+Draft
+Published
+Effective From
+Retired
+
+Historical attendance references the applicable policy/version.
+
+==================================================
+72. POLICY EFFECTIVE DATING
+==================================================
+
+Future policy changes should be schedulable.
+
+Example:
+
+Current Policy:
+Valid until Dec 31.
+
+New Policy:
+Effective Jan 1.
+
+Attendance engine resolves policy based on attendance date.
+
+==================================================
+73. ROSTER CONFLICT DETECTION
+==================================================
+
+Detect:
+
+Overlapping Shifts
+
+Insufficient Rest Between Shifts
+
+Employee Scheduled During Approved Unavailability Placeholder
+
+Duplicate Assignments
+
+Invalid Location Assignment
+
+Shift Outside Employment Period
+
+Rules must be configurable where legislation differs.
+
+==================================================
+74. REST PERIOD FOUNDATION
+==================================================
+
+Prepare minimum rest rules between shifts.
+
+Example:
+
+Minimum 11 hours between shifts.
+
+Rules can vary by:
+
+Country
+Employee Type
+Industry
+Tenant Policy
+
+Flag violations rather than making legal assumptions globally.
+
+==================================================
+75. MULTI-COUNTRY COMPLIANCE FOUNDATION
+==================================================
+
+Do NOT hard-code one country's labor laws globally.
+
+Create configurable compliance-rule architecture.
+
+Country packs can later define:
+
+Maximum Work Hours
+Minimum Rest
+Overtime Limits
+Night Work Rules
+Break Requirements
+Weekly Rest
+
+Keep:
+
+Global Engine
+
+Country Configuration
+
+Tenant Policy
+
+clearly separated.
+
+==================================================
+76. ATTENDANCE CUTOFFS
+==================================================
+
+Support operational cutoff dates.
+
+Examples:
+
+Regularization must be submitted within 5 days.
+
+Manager must approve by payroll cutoff.
+
+Attendance must be locked by date X.
+
+Rules should create reminders/tasks rather than silently failing where appropriate.
+
+==================================================
+77. DELEGATION
+==================================================
+
+Approval architecture must support future delegation.
+
+Example:
+
+Manager on vacation delegates attendance approvals temporarily.
+
+Do not hard-code manager user ID directly into approval records as the only routing mechanism.
+
+==================================================
+78. MAKER-CHECKER
+==================================================
+
+Sensitive attendance operations may require two-person control.
+
+Examples:
+
+Mass attendance adjustment
+
+Unlock finalized attendance
+
+Change approved overtime
+
+Bulk manual attendance
+
+Support architecture for:
+
+Maker
+Checker
+Approval
+Reason
+
+==================================================
+79. BULK ATTENDANCE ACTIONS
+==================================================
+
+Authorized HR can:
+
+Bulk Regularize
+
+Bulk Assign Shift
+
+Bulk Recalculate
+
+Bulk Mark On Duty where permitted
+
+Bulk Resolve Exception
+
+Bulk Lock
+
+Bulk Unlock with strict permissions
+
+Every bulk action requires:
+
+Preview
+Validation
+Confirmation
+Audit
+Partial Failure Handling
+
+==================================================
+80. ATTENDANCE REPORTING FOUNDATION
+==================================================
+
+Provide operational reports:
+
+Daily Attendance
+
+Monthly Attendance
+
+Late Arrival
+
+Early Departure
+
+Missing Punch
+
+Overtime
+
+Shift
+
+Roster
+
+Device Punch
+
+Regularization
+
+On Duty
+
+Exceptions
+
+Attendance Summary
+
+Reports must respect:
+
+Tenant
+RBAC
+Data Scope
+Sensitive Data Rules
+
+==================================================
+81. EXPORT
+==================================================
+
+Support CSV/XLSX exports.
+
+Large exports use background jobs.
+
+Audit sensitive exports.
+
+Allow exporting filtered results.
+
+==================================================
+82. SAVED VIEWS
+==================================================
+
+Allow authorized users to save operational views.
+
+Example:
+
+"Chennai Missing Punches"
+
+"Night Shift Exceptions"
+
+"Payroll Cutoff Issues"
+
+Saved view stores filters/columns, not copied attendance data.
+
+==================================================
+83. ATTENDANCE SEARCH
+==================================================
+
+Support search/filter by:
+
+Employee
+Employee Number
+Department
+Location
+Legal Entity
+Shift
+Date
+Status
+Exception
+Manager
+Attendance Source
+Policy
+Device
+
+==================================================
+84. API ARCHITECTURE
+==================================================
+
+Suggested REST API groups:
+
+/api/v1/attendance
+
+/api/v1/attendance/me
+
+/api/v1/attendance/team
+
+/api/v1/attendance/daily
+
+/api/v1/attendance/events
+
+/api/v1/attendance/punches
+
+/api/v1/attendance/regularizations
+
+/api/v1/attendance/overtime
+
+/api/v1/attendance/on-duty
+
+/api/v1/attendance/exceptions
+
+/api/v1/attendance/process
+
+/api/v1/attendance/locks
+
+/api/v1/shifts
+
+/api/v1/shift-assignments
+
+/api/v1/shift-rotations
+
+/api/v1/rosters
+
+/api/v1/work-weeks
+
+/api/v1/holiday-calendars
+
+/api/v1/attendance-policies
+
+/api/v1/attendance/devices
+
+/api/v1/attendance/imports
+
+/api/v1/attendance/reports
+
+Use:
+
+Authorization
+Tenant Scope
+Pagination
+Filtering
+Sorting
+Validation
+Idempotency where required
+
+==================================================
+85. DATABASE FOUNDATION
+==================================================
+
+Design normalized tables for at least:
+
+work_weeks
+
+work_week_days
+
+holiday_calendars
+
+holidays
+
+employee_holiday_calendar_assignments
+
+shifts
+
+shift_segments
+
+shift_assignments
+
+shift_rotations
+
+shift_rotation_patterns
+
+rosters
+
+roster_entries
+
+attendance_policies
+
+attendance_policy_versions
+
+attendance_policy_assignments
+
+attendance_events
+
+attendance_days
+
+attendance_exceptions
+
+attendance_adjustments
+
+attendance_regularizations
+
+attendance_regularization_actions
+
+overtime_requests
+
+on_duty_requests
+
+attendance_devices
+
+employee_device_mappings
+
+device_sync_runs
+
+attendance_imports
+
+attendance_import_rows
+
+attendance_processing_runs
+
+attendance_locks
+
+attendance_calculation_traces
+
+geofences
+
+Add appropriate:
+
+tenant ownership
+
+foreign keys
+
+indexes
+
+unique constraints
+
+effective dates
+
+audit references
+
+timestamps
+
+Do not denormalize prematurely.
+
+==================================================
+86. INDEXING
+==================================================
+
+Optimize high-volume tables.
+
+Attendance events can become extremely large.
+
+Important indexes may involve:
+
+tenant_id
+
+employee_id
+
+event timestamp
+
+attendance date
+
+device
+
+external event ID
+
+status
+
+processing state
+
+Do not add indexes blindly.
+
+Validate against expected queries.
+
+==================================================
+87. SCALE
+==================================================
+
+Architecture should support large tenants.
+
+Consider:
+
+50,000+ employees
+
+Multiple punches per employee per day
+
+Years of attendance history
+
+Multiple devices
+
+Bulk imports
+
+High morning/evening punch traffic
+
+Use:
+
+Queues
+Batch Processing
+Chunking
+Efficient Queries
+Idempotent Jobs
+Retry Strategy
+
+Avoid premature microservices.
+
+==================================================
+88. CONCURRENCY
+==================================================
+
+Protect against:
+
+Two punches arriving simultaneously
+
+Duplicate API delivery
+
+Recalculation while regularization approved
+
+Roster edits during publication
+
+Attendance lock during processing
+
+Use transactions/locking/idempotency appropriately.
+
+==================================================
+89. OBSERVABILITY
+==================================================
+
+Create operational logging/metrics architecture.
+
+Track:
+
+Processing failures
+
+Device sync failures
+
+Import failures
+
+Calculation failures
+
+Queue failures
+
+Abnormal processing duration
+
+Do not expose technical stack traces to ordinary users.
+
+==================================================
+90. ERROR HANDLING
+==================================================
+
+User-friendly errors.
+
+Example:
+
+Bad:
+"SQLSTATE..."
+
+Good:
+"We couldn't process attendance for 14 employees because their shift assignment is missing."
+
+Provide actionable resolution where possible.
+
+==================================================
+91. UI DESIGN
+==================================================
+
+Maintain restrained purple design system.
+
+Attendance status colors should remain semantically understandable.
+
+Do not turn every status into a bright badge.
+
+Use visual density appropriate for HR operations.
+
+==================================================
+92. MOBILE UX
+==================================================
+
+Mobile priorities:
+
+Check In/Out
+
+Today's Shift
+
+Today's Hours
+
+Attendance Status
+
+Regularization
+
+Upcoming Shifts
+
+Notifications
+
+Do not expose desktop admin complexity on employee mobile screens.
+
+==================================================
+93. RESPONSIVE ADMIN UX
+==================================================
+
+Large attendance tables must transform appropriately.
+
+Desktop:
+Dense operational table.
+
+Tablet:
+Reduced columns + detail drawer.
+
+Mobile:
+Employee/day cards + filters + detail sheets.
+
+Do not horizontally squeeze 15-column tables.
+
+==================================================
+94. LOADING/ERROR STATES
+==================================================
+
+Every attendance screen must include:
+
+Loading
+
+Skeleton
+
+Empty
+
+Error
+
+No Permission
+
+Processing
+
+Partial Failure
+
+Success
+
+Locked State
+
+Offline/Connectivity Message where relevant
+
+==================================================
+95. SECURITY
+==================================================
+
+Implement:
+
+Tenant Isolation
+
+Server-Side Authorization
+
+Data Scope
+
+Rate Limits
+
+Secure APIs
+
+Device Authentication Architecture
+
+Import Validation
+
+Sensitive Location Controls
+
+Audit
+
+Anti-Replay/Idempotency where relevant
+
+Never trust client-submitted employee IDs without authorization.
+
+==================================================
+96. FRAUD/ANOMALY FOUNDATION
+==================================================
+
+Prepare architecture for attendance integrity signals.
+
+Possible future indicators:
+
+Impossible travel between punch locations
+
+Suspicious duplicate devices
+
+Repeated manual corrections
+
+Unusual punch source changes
+
+Do NOT automatically accuse employees of fraud.
+
+Use neutral language:
+
+"Attendance integrity review required."
+
+Human review is mandatory.
+
+==================================================
+97. DOMAIN EVENTS
+==================================================
+
+Create events such as:
+
+EmployeeCheckedIn
+
+EmployeeCheckedOut
+
+AttendanceCalculated
+
+AttendanceExceptionDetected
+
+RegularizationSubmitted
+
+RegularizationApproved
+
+RegularizationRejected
+
+AttendanceAdjusted
+
+OvertimeRequested
+
+OvertimeApproved
+
+ShiftAssigned
+
+ShiftChanged
+
+RosterPublished
+
+AttendanceLocked
+
+AttendanceUnlocked
+
+DeviceSyncCompleted
+
+DeviceSyncFailed
+
+These events should support future modules without tight coupling.
+
+==================================================
+98. AUTOMATION-READY ARCHITECTURE
+==================================================
+
+Future automation should be able to react to events.
+
+Examples:
+
+IF Missing Punch
+AND unresolved for 24 hours
+THEN remind employee.
+
+IF regularization pending for 2 days
+THEN remind manager.
+
+IF attendance not finalized before payroll cutoff
+THEN alert HR.
+
+Do not build a separate automation engine inside Attendance.
+
+Prepare hooks for the future central Workflow/Automation Engine.
+
+==================================================
+99. UNIQUE VALUE — ATTENDANCE EXPLAINER
+==================================================
+
+Make attendance transparency a product differentiator.
+
+Employees and managers should be able to understand:
+
+What happened?
+
+Which punches were considered?
+
+Which shift applied?
+
+Which rule caused late/half-day status?
+
+Was there an adjustment?
+
+Was overtime approved?
+
+What action can be taken?
+
+Provide a human-readable explanation generated from deterministic rule results.
+
+==================================================
+100. UNIQUE VALUE — TIME OFFICE ACTION CENTER
+==================================================
+
+Instead of making HR inspect multiple reports, create actionable queues.
+
+Examples:
+
+Needs Attention
+
+Missing Punches — 24
+
+Policy Missing — 3
+
+Shift Missing Tomorrow — 8
+
+Regularizations Waiting — 12
+
+Device Sync Failed — 1
+
+Payroll Cutoff Risks — 5
+
+Each item opens directly to the affected records and relevant action.
+
+==================================================
+101. UNIQUE VALUE — ATTENDANCE CONFIDENCE
+==================================================
+
+Create an internal Attendance Confidence concept.
+
+This must NOT be employee performance scoring.
+
+It represents data completeness.
+
+Example:
+
+CONFIRMED
+
+All required punches and rules resolved.
+
+REVIEW REQUIRED
+
+Missing or conflicting attendance information.
+
+PENDING
+
+Awaiting approval/import/processing.
+
+This helps Payroll later determine whether attendance is safe to consume.
+
+==================================================
+102. UNIQUE VALUE — DAY RECONSTRUCTION
+==================================================
+
+For authorized users provide a chronological day reconstruction.
+
+Example:
+
+08:54
+Biometric IN
+
+12:58
+Break OUT
+
+13:31
+Break IN
+
+18:07
+Biometric OUT
+
+18:10
+Attendance Calculated
+
+Next Day 10:15
+Regularization Submitted
+
+11:40
+Manager Approved
+
+11:41
+Attendance Recalculated
+
+This dramatically improves dispute resolution.
+
+==================================================
+103. UNIQUE VALUE — ATTENDANCE IMPACT PREVIEW
+==================================================
+
+When authorized HR changes:
+
+Shift
+
+Attendance Policy
+
+Holiday
+
+Roster
+
+Approved Punch
+
+Regularization
+
+show potential impact before final confirmation where feasible.
+
+Example:
+
+"This change will recalculate attendance for 142 employees across 3 dates."
+
+Require confirmation for significant impact.
+
+==================================================
+104. UNIQUE VALUE — PAYROLL READINESS
+==================================================
+
+Create a Payroll Readiness indicator without implementing payroll.
+
+For each payroll group/date period eventually expose:
+
+Attendance Processed
+
+Exceptions Remaining
+
+Approvals Pending
+
+Attendance Locked
+
+Overtime Approved
+
+Missing Policies
+
+Missing Shifts
+
+Example:
+
+Attendance Readiness: 96%
+
+Do not use arbitrary scoring.
+
+Percentage/status must be derived from explicit unresolved conditions.
+
+==================================================
+105. TESTING
+==================================================
+
+Backend tests:
+
+Tenant Isolation
+
+Attendance Policy Resolution
+
+Shift Resolution
+
+Cross-Midnight Shift
+
+Flexible Shift
+
+Split Shift
+
+Timezone/DST
+
+Punch Creation
+
+Punch Deduplication
+
+Calculation
+
+Grace Rules
+
+Late
+
+Early Exit
+
+Breaks
+
+Missing Punch
+
+Regularization
+
+Overtime
+
+On Duty
+
+Geofence Authorization
+
+Device Mapping
+
+Import
+
+Roster
+
+Shift Rotation
+
+Effective Dating
+
+Attendance Lock
+
+Recalculation
+
+Field/Data Scope
+
+Bulk Actions
+
+Frontend tests:
+
+Check In/Out
+
+My Attendance
+
+Attendance Calendar
+
+Regularization
+
+Roster
+
+Shift Management
+
+Policy Management
+
+Time Office Console
+
+Mobile Attendance
+
+Responsive Tables
+
+Error States
+
+Permission States
+
+Integration tests:
+
+Punch
+→ Calculation
+
+Missing Punch
+→ Exception
+
+Exception
+→ My Work
+
+Regularization
+→ Approval
+
+Approval
+→ Recalculation
+
+Recalculation
+→ Timeline/Audit
+
+Roster Change
+→ Notification
+
+Attendance Lock
+→ Edit Protection
+
+Tenant A
+→ Cannot access Tenant B attendance
+
+==================================================
+106. EDGE CASE TESTING
+==================================================
+
+Explicitly test:
+
+Midnight Crossing
+
+DST Change
+
+Employee Changes Timezone
+
+Employee Transfers Location
+
+Future-Dated Shift Change
+
+Two IN Punches
+
+Two OUT Punches
+
+No Punch
+
+Single Punch
+
+Punch Exactly at Midnight
+
+Holiday + Weekly Off
+
+Night Shift on Holiday Boundary
+
+Employee Joins Mid-Month
+
+Employee Leaves Mid-Month
+
+Employee Rehired
+
+Roster Changed After Punch
+
+Policy Changed After Attendance
+
+Locked Attendance Recalculation Attempt
+
+Device Sends Duplicate Events
+
+Late Device Sync
+
+==================================================
+107. PERFORMANCE TESTING
+==================================================
+
+Test realistic bulk scenarios.
+
+Examples:
+
+10,000 employees daily processing
+
+50,000 employees daily processing
+
+Large biometric event import
+
+Monthly attendance generation
+
+Bulk roster assignment
+
+Bulk recalculation
+
+Measure:
+
+Processing time
+
+Query count
+
+Memory
+
+Queue behavior
+
+Failures
+
+Do not optimize using guessed bottlenecks only.
+
+==================================================
+108. PHASE 3 COMPLETION REPORT
+==================================================
+
+At completion report:
+
+Architecture created
+
+Database tables/migrations
+
+Models
+
+Attendance calculation engine
+
+Policy engine
+
+Shift engine
+
+Roster engine
+
+Device architecture
+
+APIs/routes
+
+Frontend pages
+
+Reusable components
+
+My Work integrations
+
+Notification integrations
+
+Employee 360 integrations
+
+Time Office Command Center
+
+Attendance Explainer
+
+Payroll Readiness foundation
+
+Multi-country considerations
+
+Security controls
+
+Performance considerations
+
+Tests created
+
+Test results
+
+Known issues
+
+Technical debt
+
+Deferred functionality
+
+Phase 4 readiness
+
+==================================================
+PHASE 3 SUCCESS CRITERIA
+==================================================
+
+Phase 3 is complete only when the HRMS can reliably determine:
+
+Who was expected to work?
+
+When were they expected?
+
+What attendance events occurred?
+
+Which rules applied?
+
+How much valid work time occurred?
+
+Were there exceptions?
+
+Does human action need to occur?
+
+Has the attendance been approved/finalized?
+
+Can downstream payroll safely consume the result later?
+
+Employees must be able to:
+
+View shifts
+
+Check in/out where enabled
+
+Understand today's attendance
+
+View attendance history
+
+Request regularization
+
+Request permitted attendance actions
+
+Managers must be able to:
+
+View team attendance
+
+Handle attendance approvals
+
+Review exceptions
+
+Understand attendance calculations
+
+HR/Time Office must be able to:
+
+Configure shifts
+
+Configure policies
+
+Manage rosters
+
+Process attendance
+
+Resolve exceptions
+
+Manage devices/imports
+
+Recalculate attendance
+
+Lock attendance
+
+Understand calculation results
+
+Identify payroll-readiness problems
+
+All functionality must respect:
+
+Multi-Tenancy
+
+Multi-Country Architecture
+
+RBAC
+
+Data Scope
+
+Effective Dating
+
+Audit
+
+Privacy
+
+Responsive UX
+
+Historical Integrity
+
+The attendance engine must be deterministic, explainable and payroll-ready.
+
+DO NOT START PHASE 4.

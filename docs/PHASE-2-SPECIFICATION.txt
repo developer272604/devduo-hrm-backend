@@ -1,0 +1,2868 @@
+# HRM MASTER SPECIFICATION
+
+## PHASE 2 — CORE PEOPLE & EMPLOYEE MANAGEMENT
+
+Continue from the completed Phase 1 foundation.
+
+The product is:
+
+- Multi-country from Day 1
+- Multi-tenant SaaS
+- Enterprise-capable
+- Designed to compete with leading HRMS platforms such as Keka
+- API-first
+- Permission-aware
+- Workflow-ready
+- Audit-first
+- Mobile-responsive
+
+Do NOT rebuild Phase 1 components.
+
+Reuse:
+
+- Authentication
+- Tenant isolation
+- RBAC
+- Organization structures
+- Design system
+- Application shell
+- My Work
+- Notifications
+- Audit framework
+- Settings framework
+- API client
+- Error handling
+- Reusable forms/tables/modals/drawers
+
+Do NOT start:
+
+- Payroll processing
+- Full attendance processing
+- Recruitment/ATS
+- Performance reviews
+- Learning
+- Expense management
+- Advanced analytics
+
+However, architecture created in this phase MUST support these future modules.
+
+==================================================
+1. PEOPLE DOMAIN ARCHITECTURE
+==================================================
+
+Create a dedicated People domain.
+
+Employee must NOT be tightly coupled to User.
+
+An Employee represents a person/employment record.
+
+A User represents authentication/access.
+
+Support:
+
+- employee without login
+- employee with login
+- pre-joiner
+- active employee
+- inactive employee
+- separated employee
+- contractor
+- intern
+- consultant
+- temporary worker
+- rehired employee
+- multiple employment records over time
+
+Use UUID/public-safe identifiers where appropriate.
+
+Do not expose sequential internal database IDs unnecessarily.
+
+Every tenant-owned record MUST enforce tenant isolation.
+
+==================================================
+2. GLOBAL PERSON + EMPLOYMENT MODEL
+==================================================
+
+Design employee architecture so personal identity and employment information are separated.
+
+Core concepts:
+
+Person
+
+Employment
+
+Employee Profile
+
+Employment Assignment
+
+Job Information
+
+Organization Assignment
+
+Manager Relationship
+
+Compensation Reference
+
+Contact Information
+
+Address
+
+Emergency Contact
+
+Identity Document
+
+Bank Account Reference
+
+Work Authorization
+
+Dependent
+
+Education
+
+Experience
+
+Certification
+
+Skill
+
+Employee Document
+
+Employee Note
+
+Employee Tag
+
+Custom Field Values
+
+Do not create one giant employees table containing every possible field.
+
+Normalize important data while avoiding unnecessary overengineering.
+
+==================================================
+3. MULTI-COUNTRY FOUNDATION
+==================================================
+
+Employee architecture must work across countries.
+
+Do NOT hard-code India-specific assumptions.
+
+Support:
+
+Country
+
+State/Province/Region
+
+City
+
+Postal Code
+
+Timezone
+
+Locale
+
+Currency
+
+Date Format
+
+Number Format
+
+Phone Country Code
+
+Address Format
+
+Name Format
+
+Working Language
+
+Preferred Language
+
+Country-specific identifiers
+
+Country-specific employment fields
+
+Country-specific statutory data placeholders
+
+Country-specific bank information schemas
+
+Create an extensible Country Configuration architecture.
+
+Country-specific fields must be configurable without modifying the global employee schema every time a new country is added.
+
+Sensitive government identifiers must have appropriate masking and permissions.
+
+==================================================
+4. EMPLOYEE NUMBERING
+==================================================
+
+Create configurable employee numbering.
+
+Support:
+
+Automatic numbering
+
+Manual numbering
+
+Prefixes
+
+Suffixes
+
+Sequence
+
+Legal-entity-based numbering
+
+Location-based numbering
+
+Employee-type-based numbering
+
+Custom patterns
+
+Examples:
+
+EMP-00001
+
+IN-EMP-00001
+
+US-NYC-00042
+
+CTR-00124
+
+Prevent duplicate employee numbers according to tenant configuration.
+
+Number generation must be transaction-safe.
+
+==================================================
+5. EMPLOYEE DIRECTORY
+==================================================
+
+Build the main People Directory.
+
+Desktop:
+
+Advanced data table.
+
+Mobile:
+
+Employee cards/list optimized for small screens.
+
+Support:
+
+Search
+
+Filters
+
+Sorting
+
+Pagination
+
+Saved views architecture
+
+Column customization
+
+Bulk selection
+
+Export permission controls
+
+Quick employee preview
+
+Employee avatar
+
+Employee number
+
+Name
+
+Designation
+
+Department
+
+Location
+
+Manager
+
+Employee type
+
+Employment status
+
+Joining date
+
+Work email
+
+Do not expose sensitive fields by default.
+
+==================================================
+6. ADVANCED PEOPLE SEARCH
+==================================================
+
+Search employees by:
+
+Name
+
+Employee number
+
+Email
+
+Phone where permitted
+
+Department
+
+Designation
+
+Location
+
+Business Unit
+
+Team
+
+Manager
+
+Skills
+
+Tags
+
+Employment status
+
+Employee type
+
+Legal entity
+
+Support combined filters.
+
+Prepare architecture for future global search indexing.
+
+Search results MUST respect data-scope permissions.
+
+==================================================
+7. EMPLOYEE PROFILE
+==================================================
+
+Create a premium employee profile.
+
+Header should include:
+
+Photo
+
+Name
+
+Preferred name
+
+Employee number
+
+Designation
+
+Department
+
+Location
+
+Manager
+
+Employment status
+
+Work contact actions
+
+Profile completion where appropriate
+
+Context actions based on permission
+
+Profile navigation should include:
+
+Overview
+
+Job
+
+Personal
+
+Contact
+
+Employment
+
+Documents
+
+Education
+
+Experience
+
+Skills
+
+Dependents
+
+Emergency Contacts
+
+Timeline
+
+Notes
+
+Assets placeholder
+
+Attendance placeholder
+
+Leave placeholder
+
+Payroll placeholder
+
+Performance placeholder
+
+Do not implement future module functionality yet.
+
+Placeholders should appear only where enabled/appropriate.
+
+==================================================
+8. EMPLOYEE OVERVIEW
+==================================================
+
+Create useful overview cards.
+
+Possible information:
+
+Reporting Manager
+
+Department
+
+Location
+
+Business Unit
+
+Employment Type
+
+Joining Date
+
+Probation Status
+
+Work Anniversary
+
+Direct Reports
+
+Basic contact information
+
+Current assignment
+
+Important employee alerts
+
+Recent activity
+
+Do NOT fill the page with decorative charts.
+
+==================================================
+9. PERSONAL INFORMATION
+==================================================
+
+Support:
+
+Legal Name
+
+Preferred Name
+
+First Name
+
+Middle Name
+
+Last Name
+
+Display Name
+
+Gender
+
+Pronouns where enabled
+
+Date of Birth
+
+Marital Status where applicable
+
+Nationality
+
+Citizenship
+
+Profile Photo
+
+Personal Email
+
+Personal Phone
+
+Blood Group where legally/organizationally appropriate
+
+Fields must support:
+
+Visibility controls
+
+Country applicability
+
+Required/optional configuration
+
+Sensitive-data classification
+
+Employee-edit permissions
+
+HR-edit permissions
+
+==================================================
+10. CONTACT & ADDRESS
+==================================================
+
+Support multiple contact records.
+
+Address types:
+
+Current
+
+Permanent
+
+Mailing
+
+Other
+
+Address structure must adapt by country.
+
+Support:
+
+Address Line
+
+City
+
+Region/State
+
+Postal Code
+
+Country
+
+Primary indicator
+
+Effective dates where useful
+
+Employee may have multiple phone/email records.
+
+==================================================
+11. EMERGENCY CONTACTS
+==================================================
+
+Support multiple emergency contacts.
+
+Fields:
+
+Name
+
+Relationship
+
+Phone
+
+Alternate Phone
+
+Email
+
+Address where needed
+
+Primary Emergency Contact
+
+Employee should be able to maintain this information if permitted.
+
+Audit all changes.
+
+==================================================
+12. DEPENDENTS
+==================================================
+
+Create dependent records.
+
+Support:
+
+Name
+
+Relationship
+
+DOB
+
+Gender where applicable
+
+Contact
+
+Dependency status
+
+Effective dates
+
+Document references
+
+Future benefits eligibility metadata
+
+Do NOT implement benefits administration yet.
+
+==================================================
+13. JOB INFORMATION
+==================================================
+
+Separate current job information from historical assignments.
+
+Support:
+
+Legal Entity
+
+Business Unit
+
+Department
+
+Team
+
+Cost Center
+
+Designation
+
+Position
+
+Grade
+
+Level
+
+Employee Type
+
+Employment Category
+
+Location
+
+Work Mode
+
+Reporting Manager
+
+Functional Manager
+
+Dotted-line Manager
+
+Effective Date
+
+Reason
+
+Support future organizational changes without overwriting history.
+
+==================================================
+14. EFFECTIVE-DATED EMPLOYMENT DATA
+==================================================
+
+This is mandatory.
+
+Important employee job information must be effective-dated.
+
+Examples:
+
+Department change
+
+Designation change
+
+Manager change
+
+Location transfer
+
+Legal entity transfer
+
+Promotion
+
+Demotion
+
+Employee type change
+
+Grade change
+
+Cost center change
+
+Work mode change
+
+Future-dated change
+
+Never destroy historical organizational assignments when an employee changes roles.
+
+Support:
+
+Effective From
+
+Effective To
+
+Change Reason
+
+Initiated By
+
+Approved By where applicable
+
+Source
+
+Comments
+
+Audit Reference
+
+Prevent invalid overlapping effective periods.
+
+==================================================
+15. EMPLOYEE TIMELINE
+==================================================
+
+Create a unified Employee Timeline.
+
+Timeline can contain:
+
+Joined company
+
+Profile created
+
+Department changed
+
+Manager changed
+
+Location changed
+
+Designation changed
+
+Promotion
+
+Probation updated
+
+Document added
+
+Personal information updated
+
+Employment status changed
+
+Future leave/payroll/performance events later
+
+Timeline events should come from domain events rather than manually duplicated UI records where possible.
+
+Respect field-level permissions.
+
+==================================================
+16. REPORTING RELATIONSHIPS
+==================================================
+
+Support:
+
+Primary Manager
+
+Functional Manager
+
+Dotted-line Manager
+
+HR Partner
+
+Additional configurable relationship types
+
+Manager relationships should be effective-dated.
+
+Prevent obvious circular reporting relationships.
+
+Provide reusable service for:
+
+getManager()
+
+getDirectReports()
+
+getReportingChain()
+
+getAllSubordinates()
+
+getRelationship()
+
+Future RBAC/data scopes must be able to use these relationships.
+
+==================================================
+17. ORGANIZATION CHART
+==================================================
+
+Build organization chart foundation.
+
+Support:
+
+Manager hierarchy
+
+Employee cards
+
+Expand/collapse
+
+Search
+
+Department filtering
+
+Location filtering
+
+Employee details preview
+
+Lazy loading for large organizations
+
+Permission-aware visibility
+
+Do not load the entire company tree for very large tenants.
+
+==================================================
+18. EMPLOYMENT DETAILS
+==================================================
+
+Support:
+
+Original Joining Date
+
+Current Joining Date
+
+Employment Start
+
+Probation Start
+
+Probation End
+
+Confirmation Date
+
+Contract Start
+
+Contract End
+
+Notice Period
+
+Retirement Date where applicable
+
+Employment Status
+
+Worker Type
+
+Work Schedule Reference
+
+Attendance Policy Reference
+
+Leave Policy Reference
+
+Holiday Calendar Reference
+
+Payroll Group Reference
+
+Do not implement the referenced future engines yet.
+
+==================================================
+19. EMPLOYMENT STATUS ENGINE
+==================================================
+
+Create standardized lifecycle states.
+
+Examples:
+
+Preboarding
+
+Active
+
+Probation
+
+Notice Period
+
+Suspended
+
+Long Leave
+
+Separated
+
+Inactive
+
+Archived
+
+Do not hard-code every business rule into status strings.
+
+Support configurable status/reason architecture where appropriate.
+
+Status changes must be audited.
+
+==================================================
+20. PROBATION FOUNDATION
+==================================================
+
+Implement probation tracking foundation.
+
+Support:
+
+Probation applicable
+
+Start date
+
+Expected confirmation date
+
+Extension
+
+Extension reason
+
+Confirmation
+
+Confirmation date
+
+Comments
+
+Manager/HR actions
+
+Reminder events
+
+My Work integration
+
+Notifications
+
+Do NOT build performance review functionality.
+
+==================================================
+21. EDUCATION
+==================================================
+
+Support multiple education records.
+
+Fields:
+
+Institution
+
+Qualification
+
+Field of Study
+
+Start Date
+
+End Date
+
+Grade/Score where applicable
+
+Country
+
+Document
+
+Verification Status
+
+Notes
+
+==================================================
+22. PREVIOUS EXPERIENCE
+==================================================
+
+Support employment history.
+
+Fields:
+
+Employer
+
+Job Title
+
+Location
+
+Start Date
+
+End Date
+
+Responsibilities
+
+Last Salary where permitted
+
+Reason for Leaving where permitted
+
+Experience calculation
+
+Document/reference attachments
+
+==================================================
+23. SKILLS FOUNDATION
+==================================================
+
+Create global tenant skill catalog.
+
+Employee skills:
+
+Skill
+
+Category
+
+Proficiency
+
+Experience
+
+Last Used
+
+Certification
+
+Verified By
+
+Verification Status
+
+Do NOT implement advanced skill intelligence yet.
+
+Prepare it for future:
+
+Recruitment
+
+Performance
+
+Learning
+
+Workforce planning
+
+Internal mobility
+
+==================================================
+24. CERTIFICATIONS
+==================================================
+
+Support:
+
+Certification Name
+
+Issuing Organization
+
+Issue Date
+
+Expiry Date
+
+Credential ID
+
+Credential URL
+
+Attachment
+
+Verification Status
+
+Create future-ready expiration reminder events.
+
+==================================================
+25. EMPLOYEE DOCUMENT MANAGEMENT
+==================================================
+
+Build employee document architecture.
+
+Document categories may include:
+
+Identity
+
+Employment
+
+Education
+
+Experience
+
+Contract
+
+Certificate
+
+Policy
+
+Visa
+
+Work Permit
+
+Tax
+
+Bank
+
+Other
+
+Support:
+
+Upload
+
+Download
+
+Preview where possible
+
+Document type
+
+Issue date
+
+Expiry date
+
+Reference number
+
+Verification status
+
+Verified by
+
+Visibility
+
+Notes
+
+Tags
+
+Versioning architecture
+
+Expiry reminder
+
+Permission controls
+
+Audit trail
+
+Do not store sensitive documents publicly.
+
+Use secure/private storage architecture.
+
+==================================================
+26. IDENTITY & WORK AUTHORIZATION
+==================================================
+
+Create configurable identity records.
+
+Examples may include:
+
+Passport
+
+National ID
+
+Tax ID
+
+Social Security identifiers
+
+Resident permits
+
+Visa
+
+Work Permit
+
+Country-specific IDs
+
+Fields must be dynamic according to country/type.
+
+Support:
+
+Masked display
+
+Issue date
+
+Expiry date
+
+Issuing country
+
+Verification
+
+Document attachment
+
+Do not expose full identifier values in list APIs unless explicitly authorized.
+
+==================================================
+27. BANK INFORMATION FOUNDATION
+==================================================
+
+Create secure employee bank-account model for future payroll.
+
+Support country-specific account structures.
+
+Examples:
+
+Account Holder
+
+Bank
+
+Branch
+
+Account Number
+
+Routing Code
+
+SWIFT/BIC
+
+IBAN
+
+Country-specific routing identifiers
+
+Currency
+
+Primary account
+
+Effective dates
+
+Bank information is highly sensitive.
+
+Implement:
+
+Encryption where appropriate
+
+Masked display
+
+Strict permission controls
+
+Audit access/change
+
+Do NOT implement salary payments yet.
+
+==================================================
+28. EMPLOYEE NOTES
+==================================================
+
+Create notes with visibility levels.
+
+Examples:
+
+General HR Note
+
+Manager Note
+
+Private HR Note
+
+Employee-visible Note
+
+Support:
+
+Author
+
+Timestamp
+
+Visibility
+
+Category
+
+Attachments
+
+Mentions architecture
+
+Do not allow unauthorized users to infer existence of private notes.
+
+==================================================
+29. TAGS
+==================================================
+
+Create configurable employee tags.
+
+Examples:
+
+High Potential
+
+Remote
+
+Project Alpha
+
+First Aid Certified
+
+Tags must NOT replace structured employee fields.
+
+Support:
+
+Color/style token
+
+Description
+
+Permission
+
+Search/filter
+
+Bulk assignment
+
+==================================================
+30. CUSTOM FIELDS
+==================================================
+
+Build enterprise custom-field architecture.
+
+Admins can create custom employee fields.
+
+Field types:
+
+Text
+
+Long Text
+
+Number
+
+Currency
+
+Date
+
+DateTime
+
+Boolean
+
+Single Select
+
+Multi Select
+
+Email
+
+Phone
+
+URL
+
+Employee Reference
+
+Department Reference
+
+Location Reference
+
+Country
+
+Attachment Reference where appropriate
+
+Support:
+
+Field Label
+
+Internal Key
+
+Description
+
+Section
+
+Required
+
+Default
+
+Validation
+
+Visibility
+
+Employee Editable
+
+Manager Editable
+
+HR Editable
+
+Country applicability
+
+Employee-type applicability
+
+Effective dating where appropriate
+
+Active/Inactive
+
+Ordering
+
+Do not permit unsafe schema manipulation.
+
+Store values through a controlled custom-field architecture.
+
+==================================================
+31. CUSTOM SECTIONS
+==================================================
+
+Allow administrators to create configurable employee profile sections.
+
+Example:
+
+Medical Certification
+
+Uniform Details
+
+Union Information
+
+Security Clearance
+
+Equipment Eligibility
+
+Country-specific HR Information
+
+Sections should use the custom-field engine.
+
+Permission and country applicability must be supported.
+
+==================================================
+32. DATA CLASSIFICATION
+==================================================
+
+Introduce field/data classification.
+
+Suggested classes:
+
+Public Internal
+
+Employee
+
+Manager Sensitive
+
+HR Confidential
+
+Highly Sensitive
+
+System Restricted
+
+Classification must influence:
+
+API serialization
+
+UI visibility
+
+Exports
+
+Audit
+
+Search
+
+Future reporting
+
+Do not rely only on hiding fields in React.
+
+Backend authorization is mandatory.
+
+==================================================
+33. FIELD-LEVEL PERMISSIONS
+==================================================
+
+Prepare/implement field-level access rules.
+
+Examples:
+
+Employee can edit personal phone.
+
+Manager can view work contact.
+
+HR can edit employment information.
+
+Payroll admin can access bank information.
+
+Normal managers cannot view government IDs.
+
+Permissions should support:
+
+View
+
+Create
+
+Edit
+
+Delete
+
+Export
+
+Verify
+
+Where possible, permissions should be grouped understandably in Admin UI.
+
+==================================================
+34. DATA SCOPE ENGINE
+==================================================
+
+Extend Phase 1 RBAC with organizational data scopes.
+
+Support future scopes such as:
+
+Self
+
+Direct Reports
+
+All Subordinates
+
+Department
+
+Business Unit
+
+Location
+
+Legal Entity
+
+Custom Group
+
+Entire Tenant
+
+Explicit Employee Set
+
+Scope evaluation must happen server-side.
+
+Do not rely on frontend filtering for security.
+
+==================================================
+35. EMPLOYEE SELF-SERVICE
+==================================================
+
+Create employee self-service foundation.
+
+Employees can view permitted profile information.
+
+Depending on tenant policy, employees can:
+
+Edit directly
+
+Submit change request
+
+Upload document
+
+Update contact
+
+Update emergency contacts
+
+Update dependents
+
+Update bank information
+
+Changes to sensitive information may require approval.
+
+==================================================
+36. PROFILE CHANGE REQUESTS
+==================================================
+
+Build controlled profile change requests.
+
+Example:
+
+Employee changes bank account.
+
+Instead of immediately replacing approved information:
+
+Create change request.
+
+Track:
+
+Old Value
+
+Requested Value
+
+Requester
+
+Requested At
+
+Approval Status
+
+Approver
+
+Decision
+
+Comments
+
+Effective Date
+
+Audit
+
+Integrate with:
+
+My Work
+
+Notifications
+
+Audit Log
+
+Future workflow engine
+
+==================================================
+37. BULK EMPLOYEE OPERATIONS
+==================================================
+
+Authorized users should be able to perform controlled bulk actions.
+
+Examples:
+
+Assign Department
+
+Assign Location
+
+Assign Manager
+
+Assign Employee Type
+
+Add Tag
+
+Activate
+
+Deactivate
+
+Export
+
+Send Invitation
+
+Bulk operations require:
+
+Permission checks
+
+Validation preview
+
+Affected record count
+
+Confirmation
+
+Partial failure reporting
+
+Audit
+
+Large operations should be queued.
+
+==================================================
+38. EMPLOYEE IMPORT
+==================================================
+
+Build production-grade employee import.
+
+Support:
+
+CSV
+
+XLSX
+
+Template download
+
+Column mapping
+
+Custom fields
+
+Validation preview
+
+Duplicate detection
+
+Error rows
+
+Warnings
+
+Import summary
+
+Background processing
+
+Import history
+
+Rollback architecture where safe
+
+Do NOT insert invalid rows silently.
+
+Allow corrected failed rows to be retried.
+
+==================================================
+39. EMPLOYEE EXPORT
+==================================================
+
+Create permission-aware exports.
+
+Support:
+
+Current filtered view
+
+Selected employees
+
+Configured columns
+
+CSV/XLSX
+
+Large export jobs
+
+Export history
+
+Sensitive fields require explicit permission.
+
+Audit sensitive exports.
+
+==================================================
+40. DUPLICATE DETECTION
+==================================================
+
+Detect likely duplicate people/employees.
+
+Potential matching:
+
+Work Email
+
+Personal Email
+
+Phone
+
+Employee Number
+
+Government identifier hash where legally appropriate
+
+Name + DOB combinations
+
+Do not automatically merge people.
+
+Provide warnings and authorized resolution flow.
+
+==================================================
+41. EMPLOYEE INVITATION
+==================================================
+
+HR/Admin can invite eligible employees to activate their user account.
+
+Support:
+
+Invite
+
+Resend
+
+Expiration
+
+Cancel
+
+Accepted status
+
+Account association
+
+An employee invitation must not create duplicate person/employment records.
+
+==================================================
+42. EMPLOYEE CREATION FLOW
+==================================================
+
+Create employee using a guided experience.
+
+Suggested steps:
+
+1 Personal
+2 Employment
+3 Organization
+4 Job
+5 Contact
+6 Policies/Defaults
+7 Documents
+8 Access
+9 Review
+
+Allow:
+
+Save Draft
+
+Previous/Next
+
+Validation
+
+Permission-aware sections
+
+Country-specific fields
+
+Conditional fields
+
+Do not force unnecessary information during initial creation.
+
+==================================================
+43. QUICK ADD EMPLOYEE
+==================================================
+
+Provide fast employee creation for common cases.
+
+Minimum information:
+
+Name
+
+Work Email where applicable
+
+Joining Date
+
+Legal Entity
+
+Location
+
+Department
+
+Designation
+
+Employee Type
+
+Manager
+
+Allow completing remaining profile later.
+
+==================================================
+44. EMPLOYEE PROFILE COMPLETENESS
+==================================================
+
+Create configurable completeness calculation.
+
+Do not use arbitrary percentages.
+
+Tenant can define important profile fields.
+
+Examples:
+
+Missing emergency contact
+
+Missing bank information
+
+Missing required ID
+
+Missing profile photo
+
+Missing address
+
+Missing mandatory document
+
+Show actionable missing information.
+
+Respect permissions.
+
+==================================================
+45. EMPLOYEE CHANGE HISTORY
+==================================================
+
+Provide understandable employee history separate from technical audit logs.
+
+Example:
+
+"Department changed from Sales to Enterprise Sales."
+
+"Reporting Manager changed from A to B."
+
+"Location changed from Chennai to Bengaluru."
+
+Authorized users can inspect:
+
+Previous value
+
+New value
+
+Effective date
+
+Changed by
+
+Reason
+
+Approval reference
+
+==================================================
+46. DATA RETENTION & ARCHIVAL FOUNDATION
+==================================================
+
+Prepare lifecycle policies.
+
+Support:
+
+Active records
+
+Separated employees
+
+Archived employees
+
+Retention metadata
+
+Legal hold architecture
+
+Anonymization architecture
+
+Deletion request architecture
+
+Do not physically delete important employment history through ordinary UI delete actions.
+
+==================================================
+47. EMPLOYEE SEPARATION FOUNDATION
+==================================================
+
+Do not build full offboarding yet.
+
+Create foundation for:
+
+Resignation
+
+Termination
+
+Retirement
+
+Contract End
+
+Absconding
+
+Other separation reasons
+
+Store:
+
+Last Working Date
+
+Separation Type
+
+Reason
+
+Initiated Date
+
+Initiated By
+
+Status
+
+Rehire Eligibility
+
+Comments
+
+Future workflow reference
+
+Future clearance reference
+
+==================================================
+48. REHIRE FOUNDATION
+==================================================
+
+A separated person may be rehired.
+
+Do not duplicate the Person unnecessarily.
+
+Create a new employment relationship/period where appropriate.
+
+Maintain historical employment.
+
+Support new:
+
+Employee number depending policy
+
+Legal entity
+
+Joining date
+
+Manager
+
+Department
+
+Position
+
+Employment type
+
+==================================================
+49. DIRECTORY PRIVACY
+==================================================
+
+Tenant administrators must control what employees can see about coworkers.
+
+Examples:
+
+Work Email
+
+Work Phone
+
+Personal Phone
+
+DOB
+
+Manager
+
+Department
+
+Location
+
+Profile Photo
+
+Employee Number
+
+Pronouns
+
+Personal data must not become company-wide visible automatically.
+
+==================================================
+50. PEOPLE ADMIN SETTINGS
+==================================================
+
+Extend Settings with:
+
+Employee Fields
+
+Custom Fields
+
+Custom Sections
+
+Employee Numbering
+
+Employee Types
+
+Employment Statuses
+
+Separation Reasons
+
+Relationship Types
+
+Document Types
+
+Document Categories
+
+Skills
+
+Tags
+
+Profile Visibility
+
+Profile Edit Rules
+
+Data Classification
+
+Import Settings
+
+Directory Settings
+
+Country Configurations
+
+==================================================
+51. PEOPLE DASHBOARD INTEGRATION
+==================================================
+
+Add permission-aware useful dashboard items.
+
+Examples:
+
+New Joiners
+
+Upcoming Joinings
+
+Work Anniversaries
+
+Birthdays where policy permits
+
+Probation Confirmations Due
+
+Expiring Documents
+
+Incomplete Profiles
+
+Pending Employee Changes
+
+Do not add fake metrics.
+
+==================================================
+52. MY WORK INTEGRATION
+==================================================
+
+Generate My Work items for actionable People events.
+
+Examples:
+
+Approve profile change
+
+Verify document
+
+Confirm probation
+
+Complete missing employee information
+
+Review expiring work permit
+
+Review contract expiry
+
+Tasks must use the Phase 1 unified task architecture.
+
+Do not create separate disconnected task systems.
+
+==================================================
+53. NOTIFICATION INTEGRATION
+==================================================
+
+Generate appropriate notifications.
+
+Examples:
+
+Profile change submitted
+
+Profile change approved/rejected
+
+Employee invitation
+
+Probation approaching
+
+Document expiry
+
+Contract expiry
+
+Manager assignment
+
+Employee data request
+
+Use centralized notification architecture.
+
+==================================================
+54. DOMAIN EVENTS
+==================================================
+
+Implement domain events for important employee changes.
+
+Examples:
+
+EmployeeCreated
+
+EmployeeActivated
+
+EmployeeUpdated
+
+EmployeeTransferred
+
+EmployeePromoted
+
+ManagerChanged
+
+EmploymentStatusChanged
+
+EmployeeSeparated
+
+EmployeeRehired
+
+DocumentUploaded
+
+DocumentVerified
+
+ProfileChangeRequested
+
+ProfileChangeApproved
+
+ProbationDue
+
+These events will support future:
+
+Automation
+
+Notifications
+
+Audit
+
+Integrations
+
+Analytics
+
+Payroll
+
+Attendance
+
+Leave
+
+Performance
+
+Do not tightly couple modules.
+
+==================================================
+55. API DESIGN
+==================================================
+
+Create versioned REST APIs.
+
+Suggested groups:
+
+/api/v1/people
+
+/api/v1/employees
+
+/api/v1/employees/{employee}
+
+/api/v1/employees/{employee}/employment
+
+/api/v1/employees/{employee}/assignments
+
+/api/v1/employees/{employee}/documents
+
+/api/v1/employees/{employee}/education
+
+/api/v1/employees/{employee}/experience
+
+/api/v1/employees/{employee}/skills
+
+/api/v1/employees/{employee}/certifications
+
+/api/v1/employees/{employee}/dependents
+
+/api/v1/employees/{employee}/emergency-contacts
+
+/api/v1/employees/{employee}/timeline
+
+/api/v1/employees/{employee}/change-requests
+
+/api/v1/people/imports
+
+/api/v1/people/exports
+
+/api/v1/people/settings
+
+Use:
+
+Pagination
+
+Filtering
+
+Sorting
+
+Consistent validation errors
+
+Authorization policies
+
+Tenant scoping
+
+Resource transformers
+
+Rate limits where appropriate
+
+Do not expose Laravel internals through API responses.
+
+==================================================
+56. DATABASE DESIGN
+==================================================
+
+Design normalized tables for at least:
+
+people
+
+employees/employments
+
+employee_assignments
+
+employee_reporting_relationships
+
+employee_contacts
+
+employee_addresses
+
+employee_emergency_contacts
+
+employee_dependents
+
+employee_education
+
+employee_experience
+
+skills
+
+employee_skills
+
+employee_certifications
+
+employee_documents
+
+document_types
+
+identity_documents
+
+work_authorizations
+
+employee_bank_accounts
+
+employee_notes
+
+tags
+
+employee_tags
+
+custom_field_definitions
+
+custom_field_options
+
+custom_field_values
+
+profile_change_requests
+
+employee_status_history
+
+employee_number_sequences
+
+employee_invitations
+
+employee_imports
+
+employee_import_rows/errors
+
+employee_exports
+
+country_configurations
+
+separation_records
+
+Add:
+
+tenant IDs
+
+appropriate foreign keys
+
+indexes
+
+unique constraints
+
+effective-date indexes
+
+soft-delete/archive strategy where appropriate
+
+audit integration
+
+Do not blindly add tenant_id when ownership can be safely inherited without considering query/security requirements.
+
+Document the chosen tenancy strategy.
+
+==================================================
+57. PERFORMANCE
+==================================================
+
+People Directory must remain usable for large tenants.
+
+Avoid:
+
+N+1 queries
+
+Loading full employee objects for lists
+
+Loading complete organization hierarchy unnecessarily
+
+Returning sensitive fields unnecessarily
+
+Use:
+
+Pagination
+
+Selective fields
+
+Indexes
+
+Eager loading where appropriate
+
+Caching only where safe
+
+Background jobs
+
+Lazy loading
+
+Prepare for tenants with tens of thousands of employees.
+
+==================================================
+58. RESPONSIVE UX
+==================================================
+
+Test:
+
+1440 desktop
+
+1024 laptop/tablet
+
+768 tablet
+
+Mobile
+
+Employee directory on mobile must NOT simply be a squeezed desktop table.
+
+Use:
+
+Cards
+
+Condensed summaries
+
+Bottom sheets/drawers
+
+Mobile filters
+
+Sticky actions where useful
+
+Employee profile must remain navigable on small screens.
+
+==================================================
+59. ACCESSIBILITY
+==================================================
+
+Maintain accessible:
+
+Forms
+
+Keyboard navigation
+
+Focus states
+
+Labels
+
+Errors
+
+Modals
+
+Tables
+
+Menus
+
+Contrast
+
+Do not use purple styling at the cost of accessibility.
+
+==================================================
+60. TESTING
+==================================================
+
+Create comprehensive tests.
+
+Backend:
+
+Tenant isolation
+
+Employee authorization
+
+Field permissions
+
+Data scopes
+
+Employee CRUD
+
+Effective-dated assignments
+
+Reporting relationships
+
+Circular manager prevention
+
+Employee numbering concurrency
+
+Sensitive field masking
+
+Profile changes
+
+Documents
+
+Imports
+
+Exports
+
+Rehire
+
+Separation
+
+Country configuration
+
+Frontend:
+
+Employee directory
+
+Filters
+
+Employee profile
+
+Employee creation
+
+Validation
+
+Responsive views
+
+Permission visibility
+
+Change requests
+
+Empty/error/loading states
+
+Integration:
+
+Employee creation → audit
+
+Employee creation → timeline
+
+Employee change → notification
+
+Employee change request → My Work
+
+Approval → profile update
+
+Manager change → reporting hierarchy
+
+Tenant A cannot access Tenant B employees
+
+==================================================
+61. UX STATES
+==================================================
+
+Every major screen must implement:
+
+Loading
+
+Skeleton
+
+Empty
+
+Error
+
+No Permission
+
+Partial Data
+
+Success
+
+Validation Errors
+
+Background Job Progress
+
+Expired Session
+
+Do not leave unfinished blank screens.
+
+==================================================
+62. SECURITY
+==================================================
+
+Treat employee data as sensitive.
+
+Implement:
+
+Server-side authorization
+
+Tenant isolation
+
+Field-level authorization
+
+Secure document access
+
+Sensitive-data masking
+
+Rate limits where appropriate
+
+Audit sensitive changes
+
+Audit sensitive exports
+
+Encryption for appropriate fields
+
+Mass-assignment protection
+
+Input validation
+
+Safe file validation
+
+Do not expose private storage URLs permanently.
+
+==================================================
+63. UNIQUE VALUE FOUNDATION — EMPLOYEE 360
+==================================================
+
+Begin the HRMS differentiator called:
+
+EMPLOYEE 360
+
+Employee 360 is NOT another static employee profile.
+
+It will eventually become a contextual employee intelligence layer combining information from:
+
+People
+
+Attendance
+
+Leave
+
+Payroll
+
+Performance
+
+Learning
+
+Recruitment history
+
+Engagement
+
+Assets
+
+Tasks
+
+Documents
+
+Career changes
+
+Recognition
+
+Future modules
+
+For Phase 2 implement only the architecture and available People data.
+
+Employee 360 should answer useful questions such as:
+
+Who is this employee?
+
+Where do they sit in the organization?
+
+Who manages them?
+
+What changed recently?
+
+What requires attention?
+
+What important documents are expiring?
+
+What actions are pending?
+
+What is their employment journey?
+
+Never generate unsupported conclusions.
+
+Future AI/intelligence must be explainable and permission-aware.
+
+==================================================
+64. UNIQUE VALUE FOUNDATION — PEOPLE ACTION CENTER
+==================================================
+
+Create an action-oriented People experience.
+
+Instead of forcing HR to inspect many reports, surface actionable conditions.
+
+Examples:
+
+7 employees have missing mandatory documents.
+
+3 probation confirmations are due this week.
+
+2 work permits expire soon.
+
+5 employee changes await approval.
+
+12 profiles are missing required information.
+
+Every insight should provide an action.
+
+Examples:
+
+Review Employees
+
+Request Information
+
+Assign Task
+
+Send Reminder
+
+Export List
+
+Resolve Issue
+
+Use existing My Work + Notifications architecture rather than building another task engine.
+
+==================================================
+65. UNIQUE VALUE FOUNDATION — ORGANIZATION MEMORY
+==================================================
+
+Create the architectural concept of Organization Memory.
+
+The HRMS should preserve:
+
+Who worked where
+
+Who reported to whom
+
+Which role they held
+
+When changes happened
+
+Why changes happened
+
+What policy/configuration applied at that time
+
+This historical model will later improve:
+
+Payroll reconstruction
+
+Attendance disputes
+
+Leave calculations
+
+Performance cycles
+
+Audits
+
+Compliance
+
+Analytics
+
+Workforce planning
+
+Never overwrite historical truth simply because current employee data changes.
+
+==================================================
+66. UNIQUE VALUE FOUNDATION — CONTEXTUAL HR
+==================================================
+
+Design screens so actions appear in context.
+
+Examples:
+
+When viewing an expiring document:
+show Verify / Request New Document.
+
+When viewing probation:
+show Confirm / Extend.
+
+When viewing incomplete employee data:
+show Request Information.
+
+When viewing pending employee changes:
+show Review.
+
+Avoid forcing users to navigate through unrelated menus for common actions.
+
+==================================================
+67. UNIQUE VALUE FOUNDATION — HR DATA QUALITY ENGINE
+==================================================
+
+Create basic data-quality architecture.
+
+Detect:
+
+Missing required fields
+
+Invalid organization references
+
+Duplicate employees
+
+Expired documents
+
+Conflicting effective dates
+
+Employees without managers where manager required
+
+Invalid employment dates
+
+Incomplete country-required information
+
+Invalid contact information
+
+Data quality findings should have:
+
+Severity
+
+Category
+
+Employee
+
+Detected At
+
+Status
+
+Resolution
+
+Assignee where appropriate
+
+Source rule
+
+Do not auto-correct sensitive HR data.
+
+This engine will become a major differentiator later.
+
+==================================================
+68. ARCHITECTURAL RULES
+==================================================
+
+Throughout Phase 2:
+
+Do NOT create giant controllers.
+
+Do NOT place all business logic inside React components.
+
+Do NOT place complex business logic inside Laravel controllers.
+
+Use clear domain/application/service boundaries.
+
+Use policies/authorization consistently.
+
+Use database transactions for critical employee changes.
+
+Use queues for heavy operations.
+
+Use events for cross-module communication.
+
+Use reusable validation.
+
+Avoid premature microservices.
+
+Build a modular monolith that can evolve cleanly.
+
+Do not introduce infrastructure merely because it sounds enterprise.
+
+==================================================
+69. UI QUALITY STANDARD
+==================================================
+
+The product should feel like a serious modern SaaS HRMS.
+
+Maintain the restrained purple identity from Phase 1.
+
+Avoid:
+
+Excessive gradients
+
+Oversized cards
+
+Decorative dashboards
+
+Random colors
+
+Excessive rounded UI
+
+Generic AI-generated appearance
+
+Dense enterprise screens with no hierarchy
+
+Prioritize:
+
+Clarity
+
+Speed
+
+Hierarchy
+
+Consistency
+
+Actionability
+
+Good whitespace
+
+Compact professional tables
+
+Excellent forms
+
+Useful empty states
+
+Strong responsive behavior
+
+==================================================
+70. PHASE 2 COMPLETION REPORT
+==================================================
+
+At completion report:
+
+Architecture created
+
+Database tables/migrations
+
+Models
+
+Services/domain components
+
+Policies/permissions
+
+APIs/routes
+
+Frontend pages
+
+Reusable components added
+
+Country/multi-country architecture
+
+Employee data model
+
+Effective-dating implementation
+
+Employee 360 foundation
+
+People Action Center
+
+Data Quality foundation
+
+My Work integrations
+
+Notification integrations
+
+Audit integrations
+
+Tests created
+
+Test results
+
+Performance considerations
+
+Security considerations
+
+Known issues
+
+Technical debt
+
+Deferred functionality
+
+Phase 3 readiness
+
+Do NOT start Phase 3 automatically.
+
+==================================================
+PHASE 2 SUCCESS CRITERIA
+==================================================
+
+Phase 2 is complete only when the system can safely manage the complete core employee record for a multi-country SaaS tenant.
+
+An authorized HR administrator should be able to:
+
+Create an employee
+
+Assign organization/job information
+
+Maintain personal/employment information
+
+Upload documents
+
+Maintain skills/history/dependents
+
+Manage reporting relationships
+
+Process controlled profile changes
+
+Search/filter employees
+
+Perform authorized bulk operations
+
+Import employees
+
+Export permitted information
+
+View employee history
+
+View organization hierarchy
+
+Separate an employee
+
+Rehire an employee
+
+See actionable People issues
+
+All operations must respect:
+
+Tenant isolation
+
+RBAC
+
+Data scope
+
+Field permissions
+
+Sensitive-data rules
+
+Audit
+
+Responsive UX
+
+The implementation must establish a strong foundation for Attendance, Leave, Payroll, Recruitment, Performance and other future HRMS modules without implementing those modules prematurely.
+
+DO NOT START PHASE 3.
