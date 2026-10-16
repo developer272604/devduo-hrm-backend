@@ -15,7 +15,7 @@ final class LeakageRules
         'regularization_overtime' => ['label' => 'Repeated regularization with overtime', 'severity' => 'action_required', 'sources' => ['attendance'],
             'description' => 'Many approved punch regularizations in the same window as approved overtime.'],
         'duplicate_expense' => ['label' => 'Possible duplicate expense', 'severity' => 'action_required', 'sources' => ['expenses'],
-            'description' => 'Two or more submitted claims contain a line with the same merchant, date, amount and currency.'],
+            'description' => 'Two or more submitted claims by the same employee contain a line with the same merchant, date, amount and currency.'],
         'repeat_payroll_adjustment' => ['label' => 'Repeated manual payroll adjustments', 'severity' => 'warning', 'sources' => ['payroll'],
             'description' => 'The same employee received several manual or correction payroll adjustments in the window.'],
     ];
@@ -25,6 +25,7 @@ final class LeakageRules
         'ot_over_calculated_min_minutes' => 120,
         'regularization_min_count' => 3, 'regularization_overtime_min_minutes' => 300,
         'repeat_adjustment_min_count' => 3,
+        'duplicate_cross_employee' => false,
     ];
 
     public static function thresholds(): array

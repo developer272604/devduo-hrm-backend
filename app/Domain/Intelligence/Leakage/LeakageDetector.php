@@ -143,7 +143,8 @@ final class LeakageDetector
             'expense_claims.currency', 'expense_claims.minor_units', 'employees.id as employee_id', 'employees.uuid as employee_uuid', 'people.display_name as name')->get();
         $groups = [];
         foreach ($rows as $r) {
-            $groups[mb_strtolower(trim($r->merchant)).'|'.$r->spent_on.'|'.$r->amount_minor.'|'.$r->currency][] = $r;
+            // Same merchant, date and amount across DIFFERENT people is common (fares, set meals), so by default only one person's repeats count.
+            $groups[mb_strtolower(trim($r->merchant)).'|'.$r->spent_on.'|'.$r->amount_minor.'|'.$r->currency.($t['duplicate_cross_employee'] ? '' : '|e'.$r->employee_id)][] = $r;
         }
         $out = [];
         foreach ($groups as $key => $set) {
@@ -160,7 +161,7 @@ final class LeakageDetector
                 round($unit * ($claims->count() - 1), $first->minor_units), $first->currency, null,
                 ['merchant' => trim($first->merchant), 'spent_on' => $first->spent_on, 'amount' => $unit,
                     'claims' => $claims->map(fn ($s) => ['claim_uuid' => $s->claim_uuid, 'title' => $s->claim_title, 'employee' => $s->name, 'employee_uuid' => $s->employee_uuid])->values()->all()],
-                ['rule' => 'Lines from different submitted/approved/paid claims with the same merchant (case-insensitive), spent date, amount and currency.', 'threshold' => ['min_claims' => 2],
+                ['rule' => 'Lines from different submitted/approved/paid claims '.($t['duplicate_cross_employee'] ? 'by any employees' : 'by the same employee').' with the same merchant (case-insensitive), spent date, amount and currency.', 'threshold' => ['min_claims' => 2, 'cross_employee' => (bool) $t['duplicate_cross_employee']],
                     'sources' => ['expense_lines', 'expense_claims'], 'exposure' => 'Amount x (claims - 1): what would be recoverable if all but one are duplicates.']);
         }
 

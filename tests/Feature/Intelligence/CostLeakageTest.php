@@ -112,6 +112,17 @@ class CostLeakageTest extends TestCase
         $this->assertSame('INR', $items[0]['exposure']['currency']);
     }
 
+    public function test_identical_lines_by_different_people_are_ignored_unless_cross_employee_is_enabled(): void
+    {
+        $this->claim($this->emp, 'City Cabs', '2026-10-02', 21000);
+        $this->claim($this->other, 'City Cabs', '2026-10-02', 21000);
+        $this->postJson(self::API.'/scan')->assertOk()->assertJsonPath('scan.detected', 0);
+        $this->putJson(self::API.'/settings', ['thresholds' => ['duplicate_cross_employee' => true]])->assertOk()->assertJsonPath('thresholds.duplicate_cross_employee', true);
+        $items = $this->postJson(self::API.'/scan')->assertOk()->json('items');
+        $this->assertSame(['duplicate_expense'], array_column($items, 'rule_code'));
+        $this->assertNull($items[0]['evidence']['employee'] ?? null); // spans more than one person
+    }
+
     public function test_draft_and_rejected_claims_do_not_count_as_duplicates(): void
     {
         $this->claim($this->emp, 'Cafe', '2026-10-02', 10000, 'approved');

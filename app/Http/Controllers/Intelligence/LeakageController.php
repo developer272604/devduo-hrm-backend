@@ -68,7 +68,7 @@ final class LeakageController
     {
         $d = $r->validate(['thresholds' => 'array', 'thresholds.ot_spike_ratio' => 'numeric|min:1|max:20', 'thresholds.ot_spike_min_minutes' => 'integer|min:0|max:100000',
             'thresholds.ot_over_calculated_min_minutes' => 'integer|min:0|max:100000', 'thresholds.regularization_min_count' => 'integer|min:1|max:100',
-            'thresholds.regularization_overtime_min_minutes' => 'integer|min:0|max:100000', 'thresholds.repeat_adjustment_min_count' => 'integer|min:1|max:100',
+            'thresholds.regularization_overtime_min_minutes' => 'integer|min:0|max:100000', 'thresholds.repeat_adjustment_min_count' => 'integer|min:1|max:100', 'thresholds.duplicate_cross_employee' => 'boolean',
             'disabled_rules' => 'array', 'disabled_rules.*' => 'string|in:'.implode(',', array_keys(LeakageRules::CATALOG))]);
 
         return $this->cases->saveSettings($r->user(), $d['thresholds'] ?? [], $d['disabled_rules'] ?? []);
