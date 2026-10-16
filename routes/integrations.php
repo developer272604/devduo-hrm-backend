@@ -42,4 +42,16 @@ Route::prefix('v1/integrations')->middleware('module:integrations')->group(funct
     Route::get('import-runs', [$C, 'runs'])->middleware($view);
     Route::get('import-runs/{uuid}/items', [$C, 'runItems'])->whereUuid('uuid')->middleware($view);
     Route::post('import-runs/{uuid}/retry', [$C, 'retryRun'])->whereUuid('uuid')->middleware('permission:integrations.imports.manage');
+
+    // Migration Studio: ordered, verified moves from another HRMS using the existing module imports.
+    Route::prefix('migration-projects')->middleware('permission:integrations.migration.view')->group(function () {
+        $M = \App\Http\Controllers\Migration\MigrationController::class;
+        $manage = 'permission:integrations.migration.manage';
+        Route::get('/', [$M, 'index']);
+        Route::post('/', [$M, 'store'])->middleware($manage);
+        Route::get('{uuid}', [$M, 'show'])->whereUuid('uuid');
+        foreach (['link', 'unlink', 'skip', 'reconcile', 'verify', 'reopen', 'go-live', 'cancel'] as $action) {
+            Route::post('{uuid}/'.$action, [$M, \Illuminate\Support\Str::camel($action)])->whereUuid('uuid')->middleware($manage);
+        }
+    });
 });

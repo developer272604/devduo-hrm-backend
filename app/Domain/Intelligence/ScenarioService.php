@@ -5,6 +5,7 @@ namespace App\Domain\Intelligence;
 use App\Domain\Access\DataScope;
 use App\Domain\Audit\Audit;
 use App\Domain\Intelligence\Models\ScenarioRun;
+use App\Domain\Intelligence\Planning\WorkforcePlanner;
 use App\Domain\Leave\Operations\LeaveOps;
 use App\Domain\Leave\Simulation\SimulationService as LeaveSimulation;
 use App\Domain\People\Models\Employee;
@@ -26,6 +27,7 @@ final class ScenarioService
         'leave_forecast' => ['leave.simulate', 'leaveForecast'],
         'payroll_simulation' => ['payroll.simulate', 'payroll'],
         'headcount_plan' => ['intelligence.view', 'headcount'],
+        'workforce_plan' => ['intelligence.scenarios.run', 'workforcePlan'],
     ];
 
     /** Extra scenario sources can be registered (kind => [permission, callable(User,array):array]); used by other modules and tests. */
@@ -109,8 +111,7 @@ final class ScenarioService
         $months = max(1, min(36, (int) ($p['months'] ?? 6)));
         $hires = max(0, (int) ($p['hires_per_month'] ?? 0));
         $exits = max(0, (int) ($p['exits_per_month'] ?? 0));
-        $q = DB::table('employees')->where('employees.tenant_id', $viewer->tenant_id)->whereNull('employees.deleted_at')->whereIn('employees.status', Employee::WORKING);
-        $current = app(DataScope::class)->constrain($q, $viewer, 'intelligence.view')->count();
+        $current = $this->scopedHeadcount($viewer);
         $series = [];
         $level = $current;
         for ($m = 1; $m <= $months; $m++) {
@@ -120,5 +121,18 @@ final class ScenarioService
 
         return ['current_headcount' => $current, 'assumptions' => ['hires_per_month' => $hires, 'exits_per_month' => $exits, 'months' => $months], 'series' => $series, 'projected_headcount' => $level,
             'method' => 'current + months x (hires - exits), floored at zero. Assumptions are yours; no forecast model is used.'];
+    }
+
+    private function scopedHeadcount(User $viewer): int
+    {
+        $q = DB::table('employees')->where('employees.tenant_id', $viewer->tenant_id)->whereNull('employees.deleted_at')->whereIn('employees.status', Employee::WORKING);
+
+        return app(DataScope::class)->constrain($q, $viewer, 'intelligence.view')->count();
+    }
+
+    /** Multi-alternative workforce plan with an attrition range, hiring lead time, ramp-up and optional budget. All inputs are the user's assumptions. */
+    private function workforcePlan(User $viewer, array $p): array
+    {
+        return WorkforcePlanner::plan($p, $this->scopedHeadcount($viewer));
     }
 }

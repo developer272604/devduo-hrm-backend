@@ -73,3 +73,31 @@ Route::prefix('v1/learning')->middleware('module:learning')->group(function () {
     Route::get('command-center', [Sk::class, 'commandCenter'])->middleware('permission:learning.reports.view');
     Route::get('reports/export', [Sk::class, 'export'])->middleware('permission:learning.reports.export');
 });
+
+// Internal Talent Opportunity Marketplace: opt-in discovery, skill matching, manager release, completed-work evidence.
+Route::prefix('v1/learning/talent')->middleware('module:learning')->group(function () {
+    $T = \App\Http\Controllers\Learning\TalentController::class;
+    $self = 'permission:talent.self';
+    $post = 'permission:talent.post|talent.manage';
+    Route::get('opportunities', [$T, 'browse'])->middleware($self);
+    Route::get('my/applications', [$T, 'mine'])->middleware($self);
+    Route::get('my/profile', [$T, 'profile'])->middleware($self);
+    Route::put('my/profile', [$T, 'saveProfile'])->middleware($self);
+    Route::post('opportunities/{uuid}/apply', [$T, 'apply'])->whereUuid('uuid')->middleware($self);
+    Route::post('applications/{uuid}/withdraw', [$T, 'withdraw'])->whereUuid('uuid')->middleware($self);
+
+    Route::get('posted', [$T, 'posted'])->middleware($post);
+    Route::post('opportunities', [$T, 'store'])->middleware($post);
+    Route::get('opportunities/{uuid}', [$T, 'show'])->whereUuid('uuid')->middleware('permission:talent.self|talent.post|talent.manage');
+    Route::patch('opportunities/{uuid}', [$T, 'update'])->whereUuid('uuid')->middleware($post);
+    Route::post('opportunities/{uuid}/status', [$T, 'status'])->whereUuid('uuid')->middleware($post);
+    Route::get('opportunities/{uuid}/candidates', [$T, 'candidates'])->whereUuid('uuid')->middleware($post);
+    Route::post('applications/{uuid}/shortlist', [$T, 'shortlist'])->whereUuid('uuid')->middleware($post);
+    Route::post('applications/{uuid}/decline', [$T, 'decline'])->whereUuid('uuid')->middleware($post);
+    Route::post('applications/{uuid}/propose', [$T, 'propose'])->whereUuid('uuid')->middleware($post);
+    Route::post('applications/{uuid}/complete', [$T, 'complete'])->whereUuid('uuid')->middleware($post);
+    Route::post('applications/{uuid}/end-early', [$T, 'endEarly'])->whereUuid('uuid')->middleware($post);
+
+    Route::get('approvals', [$T, 'approvals'])->middleware('permission:talent.approve|talent.manage');
+    Route::post('applications/{uuid}/release', [$T, 'release'])->whereUuid('uuid')->middleware('permission:talent.approve|talent.manage');
+});
