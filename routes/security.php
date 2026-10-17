@@ -39,3 +39,21 @@ Route::prefix('v1/security')->middleware('module:security')->group(function () {
     Route::post('retention-policies', [SecurityAdminController::class, 'saveRetention'])->middleware('permission:security.retention.manage');
     Route::put('retention-policies/{uuid}', [SecurityAdminController::class, 'saveRetention'])->middleware('permission:security.retention.manage');
 });
+
+// Continuous Compliance Evidence Vault: controls, evidence with independent review, auditor pack.
+Route::prefix('v1/security/compliance')->middleware(['module:security', 'permission:security.compliance.view'])->group(function () {
+    $C = \App\Http\Controllers\Security\ComplianceController::class;
+    Route::get('controls', [$C, 'index']);
+    Route::get('controls/{uuid}', [$C, 'show'])->whereUuid('uuid');
+    Route::post('controls/{uuid}/evidence', [$C, 'submit'])->whereUuid('uuid'); // the owner may submit; the service refuses anyone else without manage
+    Route::middleware('permission:security.compliance.manage')->group(function () use ($C) {
+        Route::post('controls', [$C, 'store']);
+        Route::patch('controls/{uuid}', [$C, 'update'])->whereUuid('uuid');
+        Route::post('remind', [$C, 'remind']);
+    });
+    Route::middleware('permission:security.compliance.review')->group(function () use ($C) {
+        Route::get('review-queue', [$C, 'queue']);
+        Route::post('evidence/{uuid}/review', [$C, 'review'])->whereUuid('uuid');
+        Route::get('pack', [$C, 'pack']);
+    });
+});

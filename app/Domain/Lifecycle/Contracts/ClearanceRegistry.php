@@ -23,6 +23,12 @@ final class ClearanceRegistry
         return $out;
     }
 
+    /** @return array<string,ClearanceProvider> */
+    public function providers(): array
+    {
+        return $this->providers;
+    }
+
     public function keys(): array
     {
         return array_keys($this->providers);

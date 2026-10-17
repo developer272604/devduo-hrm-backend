@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Learning;
 
+use App\Domain\Learning\Talent\CareerService;
 use App\Domain\Learning\Talent\TalentService;
 use Illuminate\Http\Request;
 
 /** Internal Talent Opportunity Marketplace. */
 final class TalentController
 {
-    public function __construct(private TalentService $svc) {}
+    public function __construct(private TalentService $svc, private CareerService $career) {}
 
     private function rules(bool $creating): array
     {
@@ -17,6 +18,11 @@ final class TalentController
         return ['title' => "$req|string|max:200", 'description' => 'nullable|string|max:5000', 'kind' => "$req|in:".implode(',', TalentService::KINDS), 'hours_per_week' => "$req|integer|min:1|max:60",
             'starts_on' => "$req|date_format:Y-m-d", 'ends_on' => 'nullable|date_format:Y-m-d|after_or_equal:starts_on', 'closes_on' => 'nullable|date_format:Y-m-d', 'openings' => 'nullable|integer|min:1|max:50',
             'skills' => ($creating ? 'nullable' : 'sometimes').'|array|max:15', 'skills.*.skill_uuid' => 'required|uuid', 'skills.*.required_rank' => 'required|integer|min:1|max:10', 'skills.*.mandatory' => 'nullable|boolean'];
+    }
+
+    public function career(Request $r)
+    {
+        return $this->career->forSelf($r->user());
     }
 
     public function browse(Request $r)

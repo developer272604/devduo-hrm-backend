@@ -55,3 +55,20 @@ Route::prefix('v1/lifecycle')->middleware('module:lifecycle')->group(function ()
     Route::get('alumni', [L::class, 'alumni'])->middleware('permission:lifecycle.alumni.manage');
     Route::put('alumni/{uuid}/eligibility', [L::class, 'setEligibility'])->middleware('permission:lifecycle.alumni.manage');
 });
+
+// Organizational Knowledge Continuity.
+Route::prefix('v1/lifecycle/continuity')->middleware(['module:lifecycle', 'permission:lifecycle.continuity.view'])->group(function () {
+    $C = \App\Http\Controllers\Lifecycle\ContinuityController::class;
+    Route::get('responsibilities', [$C, 'index']);
+    Route::get('risk', [$C, 'risk']);
+    Route::middleware('permission:lifecycle.continuity.manage')->group(function () use ($C) {
+        Route::post('responsibilities', [$C, 'store']);
+        Route::patch('responsibilities/{uuid}', [$C, 'update'])->whereUuid('uuid');
+        Route::post('handover/{uuid}', [$C, 'handover'])->whereUuid('uuid');
+    });
+});
+
+// Employee Lifecycle Dependency Graph.
+Route::prefix('v1/lifecycle')->middleware(['module:lifecycle', 'permission:lifecycle.view'])->group(function () {
+    Route::get('employees/{uuid}/dependency-graph', [\App\Http\Controllers\Lifecycle\GraphController::class, 'show'])->whereUuid('uuid');
+});

@@ -81,6 +81,7 @@ Route::prefix('v1/learning/talent')->middleware('module:learning')->group(functi
     $post = 'permission:talent.post|talent.manage';
     Route::get('opportunities', [$T, 'browse'])->middleware($self);
     Route::get('my/applications', [$T, 'mine'])->middleware($self);
+    Route::get('my/career', [$T, 'career'])->middleware($self);
     Route::get('my/profile', [$T, 'profile'])->middleware($self);
     Route::put('my/profile', [$T, 'saveProfile'])->middleware($self);
     Route::post('opportunities/{uuid}/apply', [$T, 'apply'])->whereUuid('uuid')->middleware($self);

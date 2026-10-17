@@ -37,3 +37,17 @@ Route::prefix('v1/analytics')->middleware(['module:analytics', 'permission:analy
         Route::get('exports/{uuid}/download', [O::class, 'downloadExport']);
     });
 });
+
+// Business Impact Intelligence: business results read against workforce cost (cost respects payroll permission and data scope).
+Route::prefix('v1/analytics/impact')->middleware(['module:analytics', 'permission:analytics.view', 'permission:analytics.impact.view'])->group(function () {
+    $I = \App\Http\Controllers\Analytics\ImpactController::class;
+    Route::get('metrics', [$I, 'metrics']);
+    Route::get('report', [$I, 'report']);
+    Route::middleware('permission:analytics.impact.manage')->group(function () use ($I) {
+        Route::post('metrics', [$I, 'create']);
+        Route::patch('metrics/{uuid}', [$I, 'update'])->whereUuid('uuid');
+        Route::put('metrics/{uuid}/values', [$I, 'saveValues'])->whereUuid('uuid');
+        Route::delete('metrics/{uuid}/values/{period}', [$I, 'deleteValue'])->whereUuid('uuid');
+        Route::post('import', [$I, 'import'])->middleware('throttle:20,1');
+    });
+});
