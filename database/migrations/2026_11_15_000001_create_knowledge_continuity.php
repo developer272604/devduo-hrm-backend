@@ -18,7 +18,7 @@ return new class extends Migration
             $t->foreignId('backup_employee_id')->nullable()->constrained('employees')->restrictOnDelete(); $t->boolean('backup_trained')->default(false);
             $t->date('last_reviewed_on')->nullable(); $t->string('status', 10)->default('active'); // active | retired
             $t->foreignId('created_by')->constrained('users')->restrictOnDelete(); $t->timestamps();
-            $t->index(['tenant_id', 'owner_employee_id', 'status']);
+            $t->index(['tenant_id', 'owner_employee_id', 'status'], 'continuity_owner_status_idx'); // MySQL identifiers are limited to 64 characters
         });
     }
 
