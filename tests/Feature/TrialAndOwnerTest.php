@@ -97,7 +97,7 @@ class TrialAndOwnerTest extends TestCase
         $this->postJson("/api/owner/companies/{$tenant->id}/reject")->assertOk()->assertJsonPath('status', 'rejected');
         $this->postJson("/api/owner/companies/{$tenant->id}/deactivate")->assertOk()->assertJsonPath('status', 'deactivated');
         $this->postJson("/api/owner/companies/{$tenant->id}/extend-trial", ['hours' => 24])->assertOk()->assertJsonPath('status', 'trial');
-        $this->putJson("/api/owner/companies/{$tenant->id}/subscription", ['plan' => 'pro', 'modules' => ['people']])->assertOk()->assertJsonPath('plan', 'pro');
+        $this->putJson("/api/owner/companies/{$tenant->id}/subscription", ['plan' => 'growth', 'modules' => ['people']])->assertOk()->assertJsonPath('plan', 'growth');
         $this->assertContains('people', $tenant->fresh()->settings['modules']);
         $this->assertNotContains('payroll', $tenant->fresh()->settings['modules']);
         $this->getJson("/api/owner/companies/{$tenant->id}")->assertOk()->assertJsonCount(1, 'users');
@@ -106,6 +106,32 @@ class TrialAndOwnerTest extends TestCase
         $this->postJson("/api/owner/companies/{$owner->tenant_id}/suspend")->assertNotFound();
         $this->getJson('/api/users')->assertOk();
         $this->getJson('/api/audit')->assertOk();
+    }
+
+    public function test_plans_are_priced_public_and_applied_to_companies(): void
+    {
+        $this->getJson('/api/plans')->assertOk()->assertJsonCount(3)->assertJsonPath('0.code', 'starter');
+        $this->register()->assertOk();
+        $tenant = Tenant::where('slug', 'acme-corp')->firstOrFail();
+        $this->assertContains('payroll', $tenant->settings['modules']); // trial = everything
+
+        $owner = $this->owner();
+        $this->app['auth']->forgetGuards();
+        $this->flushSession();
+        $this->actAs($owner);
+        $this->postJson('/api/owner/plans', ['code' => 'lite', 'name' => 'Lite', 'monthly_price' => 499, 'modules' => ['people']])->assertCreated();
+        $this->postJson('/api/owner/plans', ['code' => 'lite', 'name' => 'Dup', 'monthly_price' => 1, 'modules' => ['people']])->assertStatus(422);
+        $this->postJson('/api/owner/plans', ['code' => 'bad', 'name' => 'Bad', 'monthly_price' => 1, 'modules' => ['nope']])->assertStatus(422);
+
+        $this->postJson("/api/owner/companies/{$tenant->id}/approve", ['plan' => 'lite'])->assertOk()->assertJsonPath('plan', 'lite')->assertJsonPath('plan_price', 499);
+        $modules = $tenant->fresh()->settings['modules'];
+        $this->assertEqualsCanonicalizing(['work', 'notifications', 'people'], $modules);
+        $this->postJson("/api/owner/companies/{$tenant->id}/approve", ['plan' => 'missing'])->assertStatus(422);
+
+        $id = \App\Models\Plan::where('code', 'lite')->value('id');
+        $this->putJson("/api/owner/plans/{$id}", ['name' => 'Lite', 'monthly_price' => 599, 'modules' => ['people', 'leave']])->assertOk()->assertJsonPath('monthly_price', 599);
+        $this->deleteJson("/api/owner/plans/{$id}")->assertOk()->assertJsonPath('retired', true); // in use: retired, not deleted
+        $this->getJson('/api/plans')->assertJsonCount(3);
     }
 
     public function test_regular_users_cannot_reach_owner_routes(): void

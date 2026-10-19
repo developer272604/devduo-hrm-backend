@@ -7,6 +7,7 @@ use App\Domain\Audit\Audit;
 use App\Domain\Tenancy\AccountLifecycle;
 use App\Domain\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
@@ -89,7 +90,7 @@ class OwnerController extends Controller
     public function transition(Request $r, int $id, string $action, AccountLifecycle $lifecycle)
     {
         abort_unless(isset(AccountLifecycle::ACTIONS[$action]), 404);
-        $data = $r->validate(['note' => 'nullable|string|max:500', 'plan' => 'nullable|string|max:40', 'subscription_ends_at' => 'nullable|date|after:now']);
+        $data = $r->validate(['note' => 'nullable|string|max:500', 'plan' => 'nullable|string|max:40|exists:plans,code', 'subscription_ends_at' => 'nullable|date|after:now']);
         $t = $lifecycle->transition($this->company($id), $action, $r->user()->id, $data['note'] ?? null, array_intersect_key($data, array_flip(['plan', 'subscription_ends_at'])));
         Audit::record('company_'.$action, 'owner', 'tenant:'.$t->id, ['company' => $t->name, 'note' => $data['note'] ?? null]);
 
@@ -110,13 +111,16 @@ class OwnerController extends Controller
     /** Subscription plan, end date and the modules (feature access) the company may use. */
     public function subscription(Request $r, int $id)
     {
-        $data = $r->validate(['plan' => 'nullable|string|max:40', 'subscription_ends_at' => 'nullable|date', 'modules' => 'nullable|array', 'modules.*' => ['string', Rule::in(WorkspaceProvisioner::MODULES)]]);
+        $data = $r->validate(['plan' => 'nullable|string|max:40|exists:plans,code', 'subscription_ends_at' => 'nullable|date', 'modules' => 'nullable|array', 'modules.*' => ['string', Rule::in(WorkspaceProvisioner::MODULES)]]);
         $t = $this->company($id);
         $attrs = array_intersect_key($data, array_flip(['plan', 'subscription_ends_at']));
         if (isset($data['modules'])) {
             $attrs['settings'] = array_merge($t->settings ?? [], ['modules' => array_values(array_unique(array_merge(['work', 'notifications'], $data['modules'])))]);
         }
         $t->forceFill($attrs)->save();
+        if (! empty($data['plan']) && ! isset($data['modules'])) {
+            app(AccountLifecycle::class)->applyPlan($t, $data['plan']);
+        }
         Audit::record('subscription_updated', 'owner', 'tenant:'.$t->id, ['company' => $t->name] + array_intersect_key($data, array_flip(['plan', 'subscription_ends_at', 'modules'])));
 
         return response()->json($this->present($t));
@@ -153,7 +157,7 @@ class OwnerController extends Controller
     private function present(Tenant $t): array
     {
         return ['id' => $t->id, 'name' => $t->name, 'slug' => $t->slug, 'status' => $t->status, 'status_reason' => $t->status_reason, 'status_note' => $t->status_note,
-            'awaiting_approval' => $t->status === 'suspended' && $t->status_reason === 'trial_expired', 'plan' => $t->plan, 'trial_started_at' => $t->trial_started_at, 'trial_ends_at' => $t->trial_ends_at,
+            'awaiting_approval' => $t->status === 'suspended' && $t->status_reason === 'trial_expired', 'plan' => $t->plan, 'plan_price' => Plan::where('code', $t->plan)->value('monthly_price'), 'trial_started_at' => $t->trial_started_at, 'trial_ends_at' => $t->trial_ends_at,
             'approved_at' => $t->approved_at, 'subscription_ends_at' => $t->subscription_ends_at, 'created_at' => $t->created_at, 'status_changed_at' => $t->status_changed_at,
             'admin_email' => $t->settings['hr_email'] ?? null, 'users_count' => $t->users_count ?? User::where('tenant_id', $t->id)->count()];
     }

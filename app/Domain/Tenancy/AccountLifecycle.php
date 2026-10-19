@@ -2,6 +2,7 @@
 
 namespace App\Domain\Tenancy;
 
+use App\Models\Plan;
 use App\Models\Tenant;
 
 /** Free-trial and owner-approval lifecycle of a workspace: trial -> suspended -> (owner) active. */
@@ -56,6 +57,21 @@ final class AccountLifecycle
             }
         }
         $t->forceFill($attrs)->save();
+        if ($status === 'active' && ! empty($subscription['plan'])) {
+            $this->applyPlan($t, $subscription['plan']);
+        }
+
+        return $t;
+    }
+
+    /** Sets the company's plan and unlocks exactly that plan's modules. Unknown plan codes only label the account. */
+    public function applyPlan(Tenant $t, string $code): Tenant
+    {
+        $t->forceFill(['plan' => $code]);
+        if ($plan = Plan::where('code', $code)->first()) {
+            $t->settings = array_merge($t->settings ?? [], ['modules' => $plan->allModules()]);
+        }
+        $t->save();
 
         return $t;
     }
