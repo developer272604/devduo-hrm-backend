@@ -10,7 +10,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(web: __DIR__.'/../routes/web.php', commands: __DIR__.'/../routes/console.php', health: '/up')
     ->withMiddleware(function (Middleware $m) {
-        $m->alias(['tenant' => TenantSession::class, 'permission' => RequirePermission::class, 'module' => RequireModule::class, 'device' => \App\Http\Middleware\DeviceAuthentication::class, 'api.client' => \App\Http\Middleware\ApiClientAuthentication::class]);
+        $m->alias(['tenant' => TenantSession::class, 'permission' => RequirePermission::class, 'module' => RequireModule::class, 'owner' => \App\Http\Middleware\RequireOwner::class, 'device' => \App\Http\Middleware\DeviceAuthentication::class, 'api.client' => \App\Http\Middleware\ApiClientAuthentication::class]);
         // Attendance devices authenticate with a hashed per-device token, not a browser session.
         $m->validateCsrfTokens(except: ['api/device/*']);
     })

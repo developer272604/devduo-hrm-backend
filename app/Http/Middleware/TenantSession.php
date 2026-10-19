@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Domain\Security\MfaService;
 use App\Domain\Security\PasswordPolicy;
 use App\Domain\Security\SessionService;
+use App\Domain\Tenancy\AccountLifecycle;
 use App\Domain\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -37,6 +38,16 @@ class TenantSession
         }
     }
 
+    private function lockedMessage(array $s): string
+    {
+        return match (true) {
+            $s['status'] === 'suspended' && $s['reason'] === 'trial_expired' => 'Your 24-hour free trial has ended. Your account is suspended until the HRMS owner approves it.',
+            $s['status'] === 'rejected' => 'Your account request was not approved.',
+            $s['status'] === 'deactivated' => 'Your account has been deactivated. Contact the HRMS owner.',
+            default => 'Your account is suspended. Contact the HRMS owner.',
+        };
+    }
+
     private function endSession(Request $r, string $message)
     {
         Auth::logout();
@@ -50,6 +61,12 @@ class TenantSession
     private function gate(Request $r, $u)
     {
         $always = $r->is('api/me', 'api/logout', 'api/change-password');
+        // Trial over, awaiting owner approval, rejected or deactivated: only the status screen and sign-out stay available.
+        if (! $u->is_owner && ! $r->is('api/me', 'api/logout') && ! app(AccountLifecycle::class)->hasAccess($u->tenant)) {
+            $s = app(AccountLifecycle::class)->summary($u->tenant);
+
+            return response()->json(['message' => $this->lockedMessage($s), 'code' => 'account_'.$s['status'], 'account' => $s], 403);
+        }
         if (! $always && app(PasswordPolicy::class)->isExpired($u)) {
             return response()->json(['message' => 'Your password has expired. Change it to continue.', 'code' => 'password_expired'], 403);
         }

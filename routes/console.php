@@ -3,6 +3,7 @@
 use App\Domain\Access\WorkspaceProvisioner;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Validation\Rules\Password;
 
@@ -56,3 +57,28 @@ Schedule::command('intelligence:scan')->dailyAt('04:30')->withoutOverlapping();
 
 // Analytics: scheduled report delivery (idempotent per slot) and expired file purge.
 Schedule::command('analytics:deliver-reports')->everyFiveMinutes()->withoutOverlapping();
+
+
+// Free trials: suspend workspaces whose 24 hours are over (also enforced lazily on every request).
+Schedule::command('trials:expire')->everyMinute();
+
+Artisan::command('hrm:owner {email} {--name=HRMS Owner}', function (WorkspaceProvisioner $provisioner) {
+    $password = $this->secret('Owner password (12+ characters, letters and numbers)');
+    $data = ['email' => $this->argument('email'), 'password' => $password];
+    $validator = validator($data, ['email' => 'required|email|unique:users,email', 'password' => ['required', Password::min(12)->letters()->numbers()]]);
+    if ($validator->fails()) {
+        foreach ($validator->errors()->all() as $error) {
+            $this->error($error);
+        }
+
+        return 1;
+    }
+    $user = DB::transaction(function () use ($provisioner, $data) {
+        $user = $provisioner->create('HRMS Platform', 'platform', $data['email'], $data['password']);
+        $user->forceFill(['name' => $this->option('name'), 'is_owner' => true])->save();
+        $user->tenant->forceFill(['is_platform' => true, 'status' => 'active', 'plan' => 'owner'])->save();
+
+        return $user;
+    });
+    $this->info('Owner created. Sign in with workspace "'.$user->tenant->slug.'" and '.$user->email.'.');
+})->purpose('Create the HRMS owner account (platform workspace, full control, exempt from trials)');

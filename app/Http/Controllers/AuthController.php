@@ -6,6 +6,8 @@ use App\Domain\Audit\Audit;
 use App\Domain\Security\MfaService;
 use App\Domain\Security\PasswordPolicy;
 use App\Domain\Security\SessionService;
+use App\Domain\Access\WorkspaceProvisioner;
+use App\Domain\Tenancy\AccountLifecycle;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Tenant;
 use App\Models\User;
@@ -69,6 +71,39 @@ class AuthController extends Controller
         }
     }
 
+    /** Self-service sign-up: creates a workspace, its administrator, and starts the 24-hour free trial. */
+    public function register(Request $r)
+    {
+        $data = $r->validate([
+            'company_name' => 'required|string|max:120',
+            'name' => 'required|string|max:120',
+            'email' => ['required', 'email', 'max:255', function ($attr, $value, $fail) {
+                if (User::where('email', strtolower($value))->exists()) {
+                    $fail('An account with this email already exists.');
+                }
+            }],
+            'password' => ['required', 'confirmed', PasswordRule::min(12)->letters()->numbers()],
+        ]);
+        $base = Str::slug($data['company_name']) ?: 'company';
+        if ($base === 'platform') {
+            $base = 'platform-company';
+        }
+        $slug = $base;
+        while (Tenant::where('slug', $slug)->exists()) {
+            $slug = $base.'-'.Str::lower(Str::random(4));
+        }
+        $u = app(WorkspaceProvisioner::class)->create($data['company_name'], $slug, $data['email'], $data['password']);
+        $u->forceFill(['name' => $data['name']])->save();
+        app(AccountLifecycle::class)->startTrial($u->tenant);
+        $context = app(TenantContext::class);
+        $context->id = $u->tenant_id;
+        try {
+            return $this->complete($r, $u, false);
+        } finally {
+            $context->id = null;
+        }
+    }
+
     /** Second login step: TOTP code or a single-use recovery code. */
     public function loginMfa(Request $r)
     {
@@ -126,7 +161,8 @@ class AuthController extends Controller
         $security = ['mfa_enabled' => $mfa->isEnrolled($u), 'mfa_enrollment_required' => $mfa->isRequired($u) && ! $mfa->isEnrolled($u), 'password_expired' => app(PasswordPolicy::class)->isExpired($u)];
 
         return response()->json(['user' => $u, 'roles' => $u->roles()->get(['roles.id', 'name', 'data_scope']), 'permissions' => $u->permissionKeys(), 'security' => $security,
-            'tenant' => ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug, 'setup_completed_at' => $tenant->setup_completed_at, 'settings' => $tenant->settings]]);
+            'tenant' => ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug, 'setup_completed_at' => $tenant->setup_completed_at, 'settings' => $tenant->settings, 'is_platform' => $tenant->is_platform],
+            'account' => app(AccountLifecycle::class)->summary($tenant) + ['is_owner' => (bool) $u->is_owner]]);
     }
 
     public function logout(Request $r)

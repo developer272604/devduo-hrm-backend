@@ -24,6 +24,7 @@ Route::prefix('api')->group(function () {
     Route::post('v1/careers/{workspace}/portal/logout', [\App\Http\Controllers\Recruitment\CandidatePortalController::class, 'logout']);
     Route::get('v1/careers/{workspace}/jobs', [\App\Http\Controllers\Recruitment\CareersController::class, 'index'])->middleware('throttle:60,1,careers-list');
     Route::post('v1/careers/{workspace}/jobs/{uuid}/apply', [\App\Http\Controllers\Recruitment\CareersController::class, 'apply'])->middleware('throttle:5,1,careers-apply');
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:5,10');
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:30,1');
     Route::post('login/mfa', [AuthController::class, 'loginMfa'])->middleware('throttle:20,1');
     Route::post('forgot-password', [AuthController::class, 'forgot'])->middleware('throttle:5,1');
@@ -47,6 +48,7 @@ Route::prefix('api')->group(function () {
         require __DIR__.'/integrations.php';
         require __DIR__.'/security.php';
         require __DIR__.'/intelligence.php';
+        require __DIR__.'/owner.php';
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('change-password', [AuthController::class, 'change'])->middleware('throttle:5,1');
         Route::get('dashboard', [FeedController::class, 'dashboard']);

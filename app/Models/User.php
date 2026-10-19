@@ -16,7 +16,7 @@ class User extends Authenticatable
 
     protected function casts(): array
     {
-        return ['password' => 'hashed', 'active' => 'boolean', 'email_verified_at' => 'datetime', 'session_version' => 'integer', 'password_changed_at' => 'datetime', 'locked_until' => 'datetime'];
+        return ['password' => 'hashed', 'active' => 'boolean', 'is_owner' => 'boolean', 'email_verified_at' => 'datetime', 'session_version' => 'integer', 'password_changed_at' => 'datetime', 'locked_until' => 'datetime'];
     }
 
     public function tenant()
@@ -31,11 +31,19 @@ class User extends Authenticatable
 
     public function permissionKeys(): array
     {
+        if ($this->is_owner) {
+            return Permission::pluck('key')->all();
+        }
         return $this->roles()->with('permissions')->get()->flatMap(fn ($r) => $r->permissions->pluck('key'))->unique()->values()->all();
     }
 
     public function allows(string $p): bool
     {
+        // The HRMS owner is never limited by role assignments.
+        if ($this->is_owner) {
+            return (bool) $this->active;
+        }
+
         return $this->active && in_array($p, $this->permissionKeys(), true);
     }
 
