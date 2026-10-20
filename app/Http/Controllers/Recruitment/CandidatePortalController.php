@@ -28,7 +28,7 @@ final class CandidatePortalController
     {
         abort_unless(config('recruitment.candidate_portal_enabled'), 503, 'Candidate portal access is not enabled.');
         $tenant = Tenant::where('slug', $workspace)->firstOrFail();
-        abort_unless(in_array('recruitment', $tenant->settings['modules'] ?? [], true), 404);
+        abort_unless(in_array('recruitment', $tenant->settings['modules'] ?? [], true) && app(\App\Domain\Tenancy\AccountLifecycle::class)->hasAccess($tenant), 404);
 
         return app(TenantRunner::class)->run($tenant->id, fn () => $action($tenant));
     }

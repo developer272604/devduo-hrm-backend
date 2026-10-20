@@ -18,7 +18,7 @@ final class CareersController
     private function workspace(string $slug, callable $action): mixed
     {
         $tenant = Tenant::where('slug', $slug)->firstOrFail();
-        abort_unless(in_array('recruitment', $tenant->settings['modules'] ?? [], true), 404);
+        abort_unless(in_array('recruitment', $tenant->settings['modules'] ?? [], true) && app(\App\Domain\Tenancy\AccountLifecycle::class)->hasAccess($tenant), 404);
 
         return app(TenantRunner::class)->run($tenant->id, fn () => $action($tenant));
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Attendance\Capture\Devices\DeviceTokens;
+use App\Domain\Tenancy\AccountLifecycle;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Tenant;
 use Closure;
@@ -19,7 +20,7 @@ class DeviceAuthentication
         $token = $request->bearerToken() ?: $request->header('X-Device-Token');
         $device = DeviceTokens::resolve($token);
         $tenant = $device ? Tenant::query()->find($device->tenant_id) : null;
-        if (! $device || ! $tenant || $device->status === 'inactive' || ! in_array('attendance', $tenant->settings['modules'] ?? [], true)) {
+        if (! $device || ! $tenant || $device->status === 'inactive' || ! in_array('attendance', $tenant->settings['modules'] ?? [], true) || ! app(AccountLifecycle::class)->hasAccess($tenant)) {
             return response()->json(['message' => 'Invalid device credentials.'], 401);
         }
         $context = app(TenantContext::class);

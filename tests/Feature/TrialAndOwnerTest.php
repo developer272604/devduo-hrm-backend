@@ -134,6 +134,14 @@ class TrialAndOwnerTest extends TestCase
         $this->getJson('/api/plans')->assertJsonCount(3);
     }
 
+    public function test_public_endpoints_close_when_the_company_is_suspended(): void
+    {
+        $this->register()->assertOk();
+        $this->getJson('/api/v1/careers/acme-corp/jobs')->assertOk();
+        Tenant::where('slug', 'acme-corp')->update(['status' => 'suspended', 'status_reason' => 'trial_expired']);
+        $this->getJson('/api/v1/careers/acme-corp/jobs')->assertNotFound();
+    }
+
     public function test_regular_users_cannot_reach_owner_routes(): void
     {
         $this->register()->assertOk();

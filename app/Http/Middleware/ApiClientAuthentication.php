@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Integrations\Api\ApiClientService;
+use App\Domain\Tenancy\AccountLifecycle;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\Tenant;
 use Closure;
@@ -20,7 +21,7 @@ class ApiClientAuthentication
     {
         $client = $this->clients->authenticate($request->bearerToken() ?: $request->header('X-Api-Key'));
         $tenant = $client ? Tenant::query()->find($client->tenant_id) : null;
-        if (! $client || ! $tenant || ! in_array('integrations', $tenant->settings['modules'] ?? [], true)) {
+        if (! $client || ! $tenant || ! in_array('integrations', $tenant->settings['modules'] ?? [], true) || ! app(AccountLifecycle::class)->hasAccess($tenant)) {
             return response()->json(['message' => 'Invalid API credentials.'], 401);
         }
         $context = app(TenantContext::class);
