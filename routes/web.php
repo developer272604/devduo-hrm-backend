@@ -44,6 +44,7 @@ Route::prefix('api')->group(function () {
         require __DIR__.'/assets.php';
         require __DIR__.'/expenses.php';
         require __DIR__.'/travel.php';
+        require __DIR__.'/projects.php';
         require __DIR__.'/workflows.php';
         require __DIR__.'/analytics.php';
         require __DIR__.'/integrations.php';

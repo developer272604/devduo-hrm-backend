@@ -187,7 +187,11 @@ final class TravelDeskService {
     public function desk(User $user, string $tripUuid): array {
         $trip = $this->trip($user, $tripUuid);
         $claims = ExpenseClaim::where('travel_request_id', $trip->id)->orderBy('id')->get();
-        return ['advances' => TravelAdvance::where('travel_request_id', $trip->id)->orderBy('id')->get()->map(fn ($a) => $this->advanceView($a, $user))->values(),
+        $self = $user->allows('travel.self') && $this->access->own($user, $trip);
+        return ['can_request_advance' => $self && $trip->status === 'approved',
+            'can_record_booking' => ($self || $this->manager($user)) && $trip->status === 'approved',
+            'can_cancel_booking' => $self || $this->manager($user),
+            'advances' => TravelAdvance::where('travel_request_id', $trip->id)->orderBy('id')->get()->map(fn ($a) => $this->advanceView($a, $user))->values(),
             'bookings' => TravelBooking::where('travel_request_id', $trip->id)->orderBy('id')->get()->map(fn ($b) => $this->bookingView($b))->values(),
             'claims' => $claims->filter(fn ($c) => $c->status !== 'draft' || $this->access->own($user, $c))->map(fn ($c) => ['uuid' => $c->uuid, 'title' => $c->title, 'status' => $c->status, 'currency' => $c->currency, 'total' => Money::format($c->total_minor, $c->minor_units)])->values(),
             'reconciliation' => $this->reconciliation($user, $tripUuid), 'can_manage' => $this->manager($user) && ! $this->access->own($user, $trip)];

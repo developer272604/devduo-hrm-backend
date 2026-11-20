@@ -205,6 +205,7 @@ final class WorkspaceProvisioner
         'assets.manage' => ['Assets', 'Manage workspace inventory and custody'],
         'expenses.self' => ['Expenses', 'Submit and view your expense claims'],
         'expenses.approve' => ['Expenses', 'Independently approve expense claims in your employee scope'],
+        'projects.manage' => ['Projects', 'Manage project members and review workspace timesheets'],
         'expenses.manage' => ['Expenses', 'Configure expense policies and review claims'],
         'expenses.payments.confirm' => ['Expenses', 'Record externally confirmed reimbursements'],
         'travel.self' => ['Travel', 'Submit and view your travel requests'],

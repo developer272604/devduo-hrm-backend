@@ -12,7 +12,7 @@ class SettingsController extends Controller
 {
     public function show(Request $r)
     {
-        return $r->user()->tenant;
+        return Tenant::findOrFail($r->user()->tenant_id);
     }
 
     public function save(Request $r)
