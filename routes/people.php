@@ -24,7 +24,7 @@ Route::prefix('v1')->middleware('module:people')->group(function () {
     Route::get('employees/{uuid}/status', [EmployeeController::class, 'statusHistory'])->middleware('permission:people.view');
     Route::post('employees/{uuid}/status', [EmployeeController::class, 'changeStatus'])->middleware('permission:people.manage');
 
-    foreach (['sections', 'records', 'workflows', 'operations', 'insights', 'lifecycle'] as $file) {
+    foreach (['sections', 'records', 'workflows', 'operations', 'insights', 'lifecycle', 'letters'] as $file) {
         require __DIR__.'/people/'.$file.'.php';
     }
 });

@@ -16,6 +16,8 @@ return [
 
     'default' => env('MAIL_MAILER', 'log'),
 
+    'report_delivery_enabled' => env('HRM_REPORT_EMAIL_ENABLED', false),
+
     /*
     |--------------------------------------------------------------------------
     | Mailer Configurations

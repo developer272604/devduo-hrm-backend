@@ -92,6 +92,43 @@ class ProjectsTest extends TestCase
         $this->postJson($decision, ['decision' => 'approved', 'version' => 4])->assertConflict();
         $this->getJson(self::BASE.'/report?week_start='.self::WEEK)
             ->assertExactJson([['project' => $project, 'name' => 'Implementation', 'billable' => 90, 'non_billable' => 30]]);
+
+        $planning = self::BASE.'/'.$project.'/planning';
+        $plan = ['week_start' => self::WEEK, 'client_name' => 'Client A', 'planned_minutes' => 240];
+        $this->putJson($planning, array_replace($plan, ['planned_minutes' => 0]))->assertUnprocessable();
+        $this->putJson($planning, $plan)->assertNoContent();
+        $this->getJson($planning.'?week_start='.self::WEEK)->assertExactJson(['client_name' => 'Client A', 'planned_minutes' => 240]);
+        $this->getJson(self::BASE.'/report?week_start='.self::WEEK)
+            ->assertJsonPath('0.planned_minutes', 240)->assertJsonPath('0.client_name', 'Client A');
+        $this->getJson(self::BASE.'/report?week_start=2026-11-23')->assertExactJson([]);
+
+        $this->signIn($member);
+        $this->getJson(self::BASE)->assertJsonMissingPath('data.0.client_name');
+        $this->putJson($planning, $plan)->assertForbidden();
+
+        $this->signIn($other);
+        $this->putJson($planning, $plan)->assertNotFound();
+        $this->getJson($planning.'?week_start='.self::WEEK)->assertNotFound();
+
+        $this->signIn($admin);
+        $this->getJson(self::BASE.'?assigned=1')->assertJsonMissingPath('data.0.client_name');
+        $this->putJson($planning, array_replace($plan, ['planned_minutes' => null]))->assertNoContent();
+        $this->getJson(self::BASE.'/report?week_start='.self::WEEK)->assertJsonMissingPath('0.planned_minutes');
+
+        $rates = ['currency' => 'INR', 'billing_rate' => '20.01', 'labor_rate' => '12.34', 'direct_cost' => '10.00'];
+        $this->putJson($planning, $plan + ['costing' => array_replace($rates, ['billing_rate' => '20.001'])])->assertUnprocessable();
+        $this->putJson($planning, $plan + ['costing' => $rates])->assertNoContent();
+        $this->getJson($planning.'?week_start='.self::WEEK)->assertJsonPath('costing', $rates);
+        $this->getJson(self::BASE.'/report?week_start='.self::WEEK)
+            ->assertJsonPath('0.costing.currency', 'INR')
+            ->assertJsonPath('0.costing.revenue', '30.02')
+            ->assertJsonPath('0.costing.labor_cost', '24.68')
+            ->assertJsonPath('0.costing.total_cost', '34.68')
+            ->assertJsonPath('0.costing.contribution', '-4.66');
+        $this->putJson($planning, $plan)->assertNoContent();
+        $this->getJson($planning.'?week_start='.self::WEEK)->assertJsonPath('costing', $rates);
+        $this->putJson($planning, $plan + ['costing' => null])->assertNoContent();
+        $this->getJson($planning.'?week_start='.self::WEEK)->assertJsonMissingPath('costing');
     }
 }
 

@@ -4,7 +4,7 @@ namespace App\Domain\Analytics;
 
 use App\Models\User;
 
-/** Email delivery seam. No provider ships with the product: the default adapter reports itself as unconfigured. */
+/** Email delivery seam. Deliveries are available when a supported transport is configured. */
 interface ReportEmailAdapter
 {
     public function isConfigured(): bool;

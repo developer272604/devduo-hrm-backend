@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Security\AccessReviewController;
 use App\Http\Controllers\Security\MfaController;
+use App\Http\Controllers\Security\PrivacyRequestController;
 use App\Http\Controllers\Security\SecurityAdminController;
 use App\Http\Controllers\Security\SessionController;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,12 @@ Route::prefix('v1/security')->middleware('module:security')->group(function () {
     Route::get('sessions', [SessionController::class, 'index']);
     Route::post('sessions/revoke-others', [SessionController::class, 'revokeOthers']);
     Route::delete('sessions/{uuid}', [SessionController::class, 'revoke']);
+
+    Route::get('privacy-requests', [PrivacyRequestController::class, 'index']);
+    Route::post('privacy-requests', [PrivacyRequestController::class, 'create'])->middleware('throttle:10,1');
+    Route::post('privacy-requests/{uuid}/withdraw', [PrivacyRequestController::class, 'withdraw'])->whereUuid('uuid');
+    Route::get('privacy-review', [PrivacyRequestController::class, 'queue'])->middleware('permission:security.privacy.manage');
+    Route::post('privacy-review/{uuid}', [PrivacyRequestController::class, 'review'])->whereUuid('uuid')->middleware('permission:security.privacy.manage');
 
     // Administration.
     Route::delete('users/{user}/mfa', [MfaController::class, 'adminReset'])->whereNumber('user')->middleware('permission:security.mfa.manage');

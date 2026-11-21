@@ -7,6 +7,8 @@ use App\Models\InAppNotification;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Mail\Transport\ArrayTransport;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Performance\PerformanceTestCase;
 
@@ -77,6 +79,27 @@ class AnalyticsDeliveryTest extends PerformanceTestCase
         $this->assertSame(2, InAppNotification::where('category', 'analytics.report')->count());
         $this->assertSame(1, DB::table('analytics_deliveries')->where('recipient_id', $this->admin->id)->where('channel', 'in_app')->value('attempts'));
         $this->assertSame('2026-10-09T02:30:00+00:00', CarbonImmutable::parse(DB::table('analytics_schedules')->value('next_run_at'), 'UTC')->toIso8601String());
+    }
+
+    public function test_configured_smtp_sends_only_private_workspace_links_and_logs_delivery(): void
+    {
+        config(['mail.report_delivery_enabled' => true, 'mail.default' => 'smtp', 'app.frontend_url' => 'https://hrm.example.test']);
+        $transport = new ArrayTransport;
+        Mail::mailer('smtp')->setSymfonyTransport($transport);
+        $this->schedule(['channels' => ['in_app', 'email']]);
+        $this->runDelivery('2026-10-08 03:00:00');
+
+        $this->assertSame(2, DB::table('analytics_deliveries')->where('channel', 'email')->where('status', 'sent')->count());
+        $this->assertCount(2, $transport->messages());
+        foreach ($transport->messages() as $sent) {
+            $email = $sent->getOriginalMessage();
+            $this->assertStringContainsString('https://hrm.example.test/analytics/schedules?delivery=', $email->getTextBody());
+            $this->assertStringNotContainsString('headcount', $email->getTextBody());
+            $this->assertSame([], $email->getAttachments());
+        }
+        DB::table('analytics_schedules')->update(['next_run_at' => '2026-10-08 02:30:00']);
+        $this->runDelivery('2026-10-08 03:10:00');
+        $this->assertCount(2, $transport->messages());
     }
 
     public function test_recipients_are_rechecked_at_send_time_and_get_only_their_own_scope(): void

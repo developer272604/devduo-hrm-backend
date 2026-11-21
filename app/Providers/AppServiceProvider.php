@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Domain\Analytics\ReportEmailAdapter;
+use App\Domain\Analytics\SmtpReportEmailAdapter;
 use App\Domain\Tenancy\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\ServiceProvider;
@@ -10,6 +12,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->bind(ReportEmailAdapter::class, SmtpReportEmailAdapter::class);
         $this->app->scoped(TenantContext::class, fn () => new TenantContext);
     }
 

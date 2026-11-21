@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Access\DataScope;
 use App\Domain\Audit\Audit;
+use App\Domain\Operations\Money;
 use App\Domain\Work\TaskService;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -38,7 +39,9 @@ final class ProjectsController
             $projects->whereIn('id', DB::table('work_project_members')->where('user_id', $user->id)->select('project_id'));
         }
 
-        return $projects->orderBy('name')->orderBy('id')->paginate(25, ['uuid', 'name']);
+        $columns = $this->manage($user) && ! $request->boolean('assigned') ? ['uuid', 'name', 'client_name'] : ['uuid', 'name'];
+
+        return $projects->orderBy('name')->orderBy('id')->paginate(25, $columns);
     }
 
     public function create(Request $request)
@@ -111,6 +114,83 @@ final class ProjectsController
 
             return response()->json($task, 201);
         });
+    }
+
+    public function showPlanning(Request $request, string $project): array
+    {
+        $user = $request->user();
+        abort_unless($this->manage($user), 403);
+        $week = $this->week($request)->toDateString();
+        $row = $this->projects($user)->where('uuid', $project)->first();
+        abort_unless($row, 404);
+        $capacity = DB::table('work_project_weekly_capacity')->where('project_id', $row->id)
+            ->where('week_start', $week)->value('planned_minutes');
+
+        $rate = DB::table('work_project_weekly_rates')->where('project_id', $row->id)->where('week_start', $week)->first();
+        $plan = ['client_name' => $row->client_name, 'planned_minutes' => $capacity === null ? null : (int) $capacity];
+        if ($rate) {
+            $scale = Money::scale($rate->currency);
+            $plan['costing'] = [
+                'currency' => $rate->currency,
+                'billing_rate' => Money::format($rate->billing_minor, $scale),
+                'labor_rate' => Money::format($rate->labor_minor, $scale),
+                'direct_cost' => Money::format($rate->expenses_minor, $scale),
+            ];
+        }
+
+        return $plan;
+    }
+
+    public function planning(Request $request, string $project)
+    {
+        $user = $request->user();
+        abort_unless($this->manage($user), 403);
+        $week = $this->week($request)->toDateString();
+        $data = $request->validate([
+            'client_name' => 'present|nullable|string|max:150',
+            'planned_minutes' => 'present|nullable|integer|min:1|max:60000000',
+            'costing' => 'sometimes|nullable|array:currency,billing_rate,labor_rate,direct_cost|required_array_keys:currency,billing_rate,labor_rate,direct_cost',
+            'costing.currency' => 'required_with:costing|string|in:'.implode(',', array_keys(Money::SCALES)),
+            'costing.billing_rate' => 'required_with:costing|string|max:16',
+            'costing.labor_rate' => 'required_with:costing|string|max:16',
+            'costing.direct_cost' => 'required_with:costing|string|max:16',
+        ]);
+        $rate = null;
+        if (! empty($data['costing'])) {
+            $costing = $data['costing'];
+            $scale = Money::scale($costing['currency']);
+            $rate = [
+                'currency' => $costing['currency'],
+                'billing_minor' => Money::minor($costing['billing_rate'], $scale, 'costing.billing_rate'),
+                'labor_minor' => Money::minor($costing['labor_rate'], $scale, 'costing.labor_rate'),
+                'expenses_minor' => Money::minor($costing['direct_cost'], $scale, 'costing.direct_cost'),
+            ];
+        }
+
+        DB::transaction(function () use ($user, $project, $week, $data, $rate) {
+            $query = $this->projects($user)->where('uuid', $project);
+            $row = (clone $query)->lockForUpdate()->first();
+            abort_unless($row, 404);
+            $query->update(['client_name' => $data['client_name'], 'updated_at' => now()]);
+            $key = ['project_id' => $row->id, 'week_start' => $week];
+            $capacity = DB::table('work_project_weekly_capacity');
+            if ($data['planned_minutes'] === null) {
+                $capacity->where($key)->delete();
+            } else {
+                $capacity->updateOrInsert($key, ['planned_minutes' => $data['planned_minutes']]);
+            }
+            if (array_key_exists('costing', $data)) {
+                $rates = DB::table('work_project_weekly_rates');
+                if ($rate === null) {
+                    $rates->where($key)->delete();
+                } else {
+                    $rates->updateOrInsert($key, $rate);
+                }
+            }
+            Audit::record('project.planning_updated', 'work', 'project:'.$project, ['week_start' => $week]);
+        }, 3);
+
+        return response()->noContent();
     }
 
     private function week(Request $request): CarbonImmutable
@@ -255,6 +335,45 @@ final class ProjectsController
             }
         }
 
+        $projects = $this->projects($user)->select('id', 'uuid', 'name', 'client_name');
+        $capacity = DB::table('work_project_weekly_capacity as capacity')
+            ->joinSub($projects, 'project', 'project.id', '=', 'capacity.project_id')
+            ->where('capacity.week_start', $week)->get(['uuid', 'name', 'client_name', 'planned_minutes']);
+        foreach ($capacity as $row) {
+            $totals[$row->uuid] ??= ['project' => $row->uuid, 'name' => $row->name, 'billable' => 0, 'non_billable' => 0];
+            $totals[$row->uuid]['planned_minutes'] = (int) $row->planned_minutes;
+        }
+        $rates = DB::table('work_project_weekly_rates as rates')
+            ->joinSub($projects, 'project', 'project.id', '=', 'rates.project_id')
+            ->where('rates.week_start', $week)->get(['uuid', 'name', 'currency', 'billing_minor', 'labor_minor', 'expenses_minor']);
+        foreach ($rates as $row) {
+            $totals[$row->uuid] ??= ['project' => $row->uuid, 'name' => $row->name, 'billable' => 0, 'non_billable' => 0];
+            $entry = $totals[$row->uuid];
+            $revenue = $this->hourlyAmount($entry['billable'], $row->billing_minor);
+            $labor = $this->hourlyAmount($entry['billable'] + $entry['non_billable'], $row->labor_minor);
+            $cost = bcadd($labor, (string) $row->expenses_minor, 0);
+            $scale = Money::scale($row->currency);
+            $format = fn (string $minor) => bcdiv($minor, (string) (10 ** $scale), $scale);
+            $totals[$row->uuid]['costing'] = [
+                'currency' => $row->currency,
+                'revenue' => $format($revenue),
+                'labor_cost' => $format($labor),
+                'direct_cost' => $format((string) $row->expenses_minor),
+                'total_cost' => $format($cost),
+                'contribution' => $format(bcsub($revenue, $cost, 0)),
+            ];
+        }
+        $clients = $this->projects($user)->whereIn('uuid', array_keys($totals))
+            ->whereNotNull('client_name')->pluck('client_name', 'uuid');
+        foreach ($clients as $uuid => $name) {
+            $totals[$uuid]['client_name'] = $name;
+        }
+
         return array_values($totals);
+    }
+
+    private function hourlyAmount(int $minutes, int $minorRate): string
+    {
+        return bcdiv(bcadd(bcmul((string) $minutes, (string) $minorRate, 0), '30', 0), '60', 0);
     }
 }

@@ -8,6 +8,7 @@ use App\Domain\Security\Models\LegalHold;
 use App\Domain\Security\Models\RetentionPolicy;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class LegalHoldService implements LegalHoldChecker
@@ -49,10 +50,13 @@ final class LegalHoldService implements LegalHoldChecker
         if (($data['subject_ref'] ?? null) && empty($data['module'])) {
             throw ValidationException::withMessages(['module' => 'Choose the module the record belongs to.']);
         }
-        $hold = LegalHold::create(['name' => $data['name'], 'reason' => $data['reason'], 'module' => $data['module'] ?? null, 'subject_ref' => $data['subject_ref'] ?? null, 'placed_by' => $actor->id, 'placed_at' => now()]);
-        Audit::record('security.legal_hold.placed', 'security', 'legal_hold:'.$hold->uuid, ['module' => $hold->module, 'subject_ref' => $hold->subject_ref]);
+        return DB::transaction(function () use ($actor, $data) {
+            DB::table('tenants')->where('id', app(TenantContext::class)->id)->lockForUpdate()->first();
+            $hold = LegalHold::create(['name' => $data['name'], 'reason' => $data['reason'], 'module' => $data['module'] ?? null, 'subject_ref' => $data['subject_ref'] ?? null, 'placed_by' => $actor->id, 'placed_at' => now()]);
+            Audit::record('security.legal_hold.placed', 'security', 'legal_hold:'.$hold->uuid, ['module' => $hold->module, 'subject_ref' => $hold->subject_ref]);
 
-        return $hold;
+            return $hold;
+        }, 3);
     }
 
     public function release(User $actor, string $uuid, string $reason): LegalHold
@@ -78,15 +82,18 @@ final class LegalHoldService implements LegalHoldChecker
     {
         $data = validator($input, ['data_category' => 'required|string|max:100', 'module' => 'required|in:'.implode(',', self::MODULES), 'retention_days' => 'required|integer|min:1|max:36500',
             'action' => 'required|in:review,purge,anonymize', 'enforced_by' => 'nullable|string|max:120', 'enabled' => 'boolean', 'notes' => 'nullable|string|max:2000'])->validate();
-        $policy = $uuid ? RetentionPolicy::byUuid($uuid) : null;
-        $duplicate = RetentionPolicy::where('data_category', $data['data_category'])->when($policy, fn ($q) => $q->whereKeyNot($policy->id))->exists();
-        if ($duplicate) {
-            throw ValidationException::withMessages(['data_category' => 'A policy for this data category already exists.']);
-        }
-        $policy ? $policy->update($data) : $policy = RetentionPolicy::create($data);
-        Audit::record($uuid ? 'security.retention.updated' : 'security.retention.created', 'security', 'retention_policy:'.$policy->uuid, ['retention_days' => $policy->retention_days, 'action' => $policy->action]);
+        return DB::transaction(function () use ($data, $uuid) {
+            DB::table('tenants')->where('id', app(TenantContext::class)->id)->lockForUpdate()->first();
+            $policy = $uuid ? RetentionPolicy::byUuid($uuid) : null;
+            $duplicate = RetentionPolicy::where('data_category', $data['data_category'])->when($policy, fn ($q) => $q->whereKeyNot($policy->id))->exists();
+            if ($duplicate) {
+                throw ValidationException::withMessages(['data_category' => 'A policy for this data category already exists.']);
+            }
+            $policy ? $policy->update($data) : $policy = RetentionPolicy::create($data);
+            Audit::record($uuid ? 'security.retention.updated' : 'security.retention.created', 'security', 'retention_policy:'.$policy->uuid, ['retention_days' => $policy->retention_days, 'action' => $policy->action]);
 
-        return $policy->refresh();
+            return $policy->refresh();
+        }, 3);
     }
 
     public function present(LegalHold $h): array

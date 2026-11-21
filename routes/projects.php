@@ -13,5 +13,7 @@ Route::prefix('v1/projects')->middleware('module:work')->group(function () {
     Route::put('timesheet', [ProjectsController::class, 'save'])->middleware('permission:work.view');
     Route::get('reviews', [ProjectsController::class, 'reviews'])->middleware('permission:projects.manage');
     Route::post('reviews/{sheet}', [ProjectsController::class, 'review'])->whereUuid('sheet')->middleware('permission:projects.manage');
+    Route::get('{project}/planning', [ProjectsController::class, 'showPlanning'])->whereUuid('project')->middleware('permission:projects.manage');
+    Route::put('{project}/planning', [ProjectsController::class, 'planning'])->whereUuid('project')->middleware('permission:projects.manage');
     Route::get('report', [ProjectsController::class, 'report'])->middleware('permission:projects.manage');
 });

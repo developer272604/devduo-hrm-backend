@@ -162,6 +162,7 @@ class AuthController extends Controller
 
         return response()->json(['user' => $u, 'roles' => $u->roles()->get(['roles.id', 'name', 'data_scope']), 'permissions' => $u->permissionKeys(), 'security' => $security,
             'project_management' => $u->allows('projects.manage') && ($u->is_owner || app(\App\Domain\Access\DataScope::class)->hasTenantWide($u, 'projects.manage')),
+            'privacy_management' => $u->allows('security.privacy.manage') && ($u->is_owner || app(\App\Domain\Access\DataScope::class)->hasTenantWide($u, 'security.privacy.manage')),
             'tenant' => ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug, 'setup_completed_at' => $tenant->setup_completed_at, 'settings' => $tenant->settings, 'is_platform' => $tenant->is_platform],
             'account' => app(AccountLifecycle::class)->summary($tenant) + ['is_owner' => (bool) $u->is_owner]]);
     }
