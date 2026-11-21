@@ -51,9 +51,13 @@ class EmployeeController extends PeopleController
     public function store(Request $r, EmployeeService $service)
     {
         $data = $r->validate(
-            ['person' => 'required|array', 'employment' => 'required|array', 'assignment' => 'sometimes|array', 'manager_id' => ['nullable', 'integer'], 'user_id' => ['nullable', 'integer'], 'confirm_duplicates' => 'sometimes|boolean']
+            ['person' => 'required|array', 'employment' => 'required|array', 'assignment' => 'sometimes|array', 'manager_id' => ['nullable', 'integer'], 'user_id' => ['nullable', 'integer'], 'link_to_me' => 'sometimes|boolean', 'confirm_duplicates' => 'sometimes|boolean']
             + EmployeeRules::prefixed('person', EmployeeRules::person()) + EmployeeRules::prefixed('employment', EmployeeRules::employment()) + EmployeeRules::prefixed('assignment', EmployeeRules::assignment())
         );
+        if (! empty($data['link_to_me'])) {
+            $data['user_id'] = $r->user()->id; // always the caller's own login, never a client-chosen one
+        }
+        unset($data['link_to_me']);
         $employee = $service->create($data);
 
         return response()->json(['uuid' => $employee->uuid, 'employee_number' => $employee->employee_number, 'status' => $employee->status], 201);
@@ -62,7 +66,7 @@ class EmployeeController extends PeopleController
     public function quickAdd(Request $r, EmployeeService $service)
     {
         $rules = [
-            'person' => 'required|array', 'employment' => 'required|array', 'assignment' => 'required|array', 'manager_id' => ['nullable', 'integer'], 'confirm_duplicates' => 'sometimes|boolean',
+            'person' => 'required|array', 'employment' => 'required|array', 'assignment' => 'required|array', 'manager_id' => ['nullable', 'integer'], 'link_to_me' => 'sometimes|boolean', 'confirm_duplicates' => 'sometimes|boolean',
             'person.legal_first_name' => 'required|string|max:120', 'person.legal_last_name' => 'nullable|string|max:120', 'employment.joined_on' => 'required|date_format:Y-m-d',
             'employment.worker_type' => ['sometimes', Rule::in(EmployeeRules::WORKER_TYPES)], 'employment.work_email' => 'nullable|email:rfc|max:255', 'employment.country' => 'nullable|string|size:2',
         ];
@@ -72,6 +76,9 @@ class EmployeeController extends PeopleController
         }
         $data = $r->validate($rules);
         $data['employment']['worker_type'] ??= 'employee';
+        if (! empty($data['link_to_me'])) {
+            $data['user_id'] = $r->user()->id;
+        }
         $employee = $service->quickAdd($data);
 
         return response()->json(['uuid' => $employee->uuid, 'employee_number' => $employee->employee_number, 'status' => $employee->status], 201);

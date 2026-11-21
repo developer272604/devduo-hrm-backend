@@ -164,6 +164,7 @@ class AuthController extends Controller
             'project_management' => $u->allows('projects.manage') && ($u->is_owner || app(\App\Domain\Access\DataScope::class)->hasTenantWide($u, 'projects.manage')),
             'privacy_management' => $u->allows('security.privacy.manage') && ($u->is_owner || app(\App\Domain\Access\DataScope::class)->hasTenantWide($u, 'security.privacy.manage')),
             'tenant' => ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug, 'setup_completed_at' => $tenant->setup_completed_at, 'settings' => $tenant->settings, 'is_platform' => $tenant->is_platform],
+            'has_employee_profile' => ! empty(app(\App\Domain\Access\DataScope::class)->ownEmployeeIds($u)),
             'account' => app(AccountLifecycle::class)->summary($tenant) + ['is_owner' => (bool) $u->is_owner]]);
     }
 

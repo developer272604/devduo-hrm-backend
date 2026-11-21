@@ -41,7 +41,9 @@ class SettingsController extends Controller
             3 => ['location' => 'required|string|max:150', 'address' => 'required|string|max:500'],
             4 => ['departments' => 'required|array|min:1|max:50', 'departments.*' => 'required|string|max:100|distinct'],
             5 => ['work_week' => 'required|array|min:1|max:7', 'work_week.*' => 'integer|between:0,6|distinct'],
-            6 => ['employee_types' => 'required|array|min:1|max:30', 'employee_types.*' => 'required|string|max:100|distinct'],
+            6 => ['employee_types' => 'required|array|min:1|max:30', 'employee_types.*' => 'required|string|max:100|distinct',
+                // 'sometimes' keeps drafts saved before designations were added completable; the form always sends it.
+                'designations' => 'sometimes|array|min:1|max:50', 'designations.*' => 'required|string|max:100|distinct'],
             7 => ['hr_email' => 'required|email|max:255', 'notifications' => 'required|boolean'],
             default => []
         };
@@ -65,7 +67,7 @@ class SettingsController extends Controller
                 }
                 $t->name = $draft['1']['name'];
                 $t->settings = array_merge($t->settings ?? [], ['timezone' => $draft['1']['timezone'], 'work_week' => $draft['5']['work_week'], 'hr_email' => $draft['7']['hr_email'], 'notifications' => $draft['7']['notifications']]);
-                $groups = ['legal-entities' => [$draft['2']['legal_entity']], 'locations' => [$draft['3']['location']], 'departments' => $draft['4']['departments'], 'employee-types' => $draft['6']['employee_types']];
+                $groups = ['legal-entities' => [$draft['2']['legal_entity']], 'locations' => [$draft['3']['location']], 'departments' => $draft['4']['departments'], 'employee-types' => $draft['6']['employee_types'], 'designations' => $draft['6']['designations'] ?? []];
                 foreach ($groups as $type => $names) {
                     foreach ($names as $index => $name) {
                         $model = OrganizationRecord::forType($type);

@@ -111,7 +111,7 @@ final class EmployeeService
     public function quickAdd(array $data): Employee
     {
         return $this->create([
-            'person' => $data['person'], 'employment' => $data['employment'], 'assignment' => $data['assignment'] ?? [], 'manager_id' => $data['manager_id'] ?? null,
+            'person' => $data['person'], 'employment' => $data['employment'], 'assignment' => $data['assignment'] ?? [], 'manager_id' => $data['manager_id'] ?? null, 'user_id' => $data['user_id'] ?? null,
             'confirm_duplicates' => $data['confirm_duplicates'] ?? false,
         ], ['source' => 'quick_add']);
     }

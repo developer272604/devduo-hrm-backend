@@ -179,7 +179,7 @@ class FoundationTest extends TestCase
     {
         $this->signIn();
         $this->putJson('/api/setup', ['step' => 8, 'data' => [], 'complete' => true])->assertUnprocessable();
-        $steps = [1 => ['name' => 'Alpha Works', 'timezone' => 'Asia/Kolkata'], 2 => ['legal_entity' => 'Alpha Ltd', 'registration_number' => 'REG-1'], 3 => ['location' => 'Bengaluru', 'address' => 'Studio 1'], 4 => ['departments' => ['Engineering', 'People']], 5 => ['work_week' => [1, 2, 3, 4, 5]], 6 => ['employee_types' => ['Full time', 'Contract']], 7 => ['hr_email' => 'hr@alpha.test', 'notifications' => true]];
+        $steps = [1 => ['name' => 'Alpha Works', 'timezone' => 'Asia/Kolkata'], 2 => ['legal_entity' => 'Alpha Ltd', 'registration_number' => 'REG-1'], 3 => ['location' => 'Bengaluru', 'address' => 'Studio 1'], 4 => ['departments' => ['Engineering', 'People']], 5 => ['work_week' => [1, 2, 3, 4, 5]], 6 => ['employee_types' => ['Full time', 'Contract'], 'designations' => ['Engineer', 'Manager']], 7 => ['hr_email' => 'hr@alpha.test', 'notifications' => true]];
         foreach ($steps as $step => $data) {
             $this->putJson('/api/setup', compact('step', 'data'))->assertOk();
         }
@@ -187,6 +187,7 @@ class FoundationTest extends TestCase
         $this->putJson('/api/setup', ['step' => 8, 'data' => [], 'complete' => true])->assertOk();
         $this->getJson('/api/organization/departments')->assertJsonCount(2, 'data');
         $this->getJson('/api/organization/legal-entities')->assertJsonPath('data.0.metadata.registration_number', 'REG-1');
+        $this->getJson('/api/organization/designations')->assertJsonCount(2, 'data');
         $this->assertNotNull($this->admin->tenant->fresh()->setup_completed_at);
         $this->assertNull($this->other->tenant->fresh()->setup_completed_at);
         $this->putJson('/api/setup', ['step' => 8, 'data' => [], 'complete' => true])->assertUnprocessable();
