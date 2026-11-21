@@ -9,3 +9,4 @@ Route::get('employees/{uuid}/letters', [LetterController::class, 'index'])->midd
 Route::post('employees/{uuid}/letters', [LetterController::class, 'issue'])->middleware('permission:people.documents.manage');
 Route::get('employees/{uuid}/letters/{letter}/download', [LetterController::class, 'download'])->whereUuid('letter')->middleware('permission:people.view|people.documents.manage');
 Route::post('employees/{uuid}/letters/{letter}/acknowledge', [LetterController::class, 'acknowledge'])->whereUuid('letter')->middleware('permission:people.view');
+Route::post('employees/{uuid}/letters/{letter}/sign', [LetterController::class, 'sign'])->whereUuid('letter')->middleware('permission:people.view');

@@ -20,6 +20,14 @@ return [
 
     'default' => env('DB_CONNECTION', 'sqlite'),
 
+    'restore_verification' => [
+        'host' => env('HRM_RESTORE_DB_HOST'),
+        'port' => env('HRM_RESTORE_DB_PORT'),
+        'database' => env('HRM_RESTORE_DB_DATABASE'),
+        'username' => env('HRM_RESTORE_DB_USERNAME'),
+        'password' => env('HRM_RESTORE_DB_PASSWORD'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Database Connections

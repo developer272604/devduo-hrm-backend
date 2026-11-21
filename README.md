@@ -66,3 +66,15 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 "# devduo-hrm-backend" 
 "# devduo-hrm-backend" 
+
+### SQLite backup verification
+
+Run `php artisan backup:verify-sqlite <snapshot-path>` against a standalone SQLite backup. The verifier checks an isolated temporary copy and returns a SHA-256 fingerprint, SQLite integrity and foreign-key status, and confirmation that the core HRM schema is present. A failed check exits with a nonzero status. Journal, WAL and SHM sidecars must be absent.
+
+Production MySQL/MariaDB restore drills, binlog point-in-time recovery, and private-file storage restoration are separate checks.
+
+### MySQL/MariaDB restore verification
+
+After restoring a backup into a separate schema named `hrm_restore_<identifier>`, configure `HRM_RESTORE_DB_HOST`, `HRM_RESTORE_DB_PORT`, `HRM_RESTORE_DB_DATABASE`, `HRM_RESTORE_DB_USERNAME` and `HRM_RESTORE_DB_PASSWORD` for a dedicated account with SELECT access to that schema. Use an isolated host or a protected connection.
+
+Run `php artisan backup:verify-mysql --expect-tenants=<count> --expect-users=<count>` with counts from the backup inventory. The verifier reads the schema and both counts in a read-only transaction and checks for missing tenant references and cross-tenant role links. Counts are optional and a mismatch exits nonzero. Point-in-time recovery exercises and private-file restoration are separate checks.

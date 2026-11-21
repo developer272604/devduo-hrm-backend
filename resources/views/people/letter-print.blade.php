@@ -29,6 +29,9 @@
             <p class="details">Issued {{ substr($letter->created_at, 0, 10) }} &middot; Template version {{ $letter->version }}</p>
         </header>
         <div class="letter" dir="auto">{{ $body }}</div>
+        @if ($signer)
+            <p class="details">Electronically signed in DevDuo HRM by {{ $signer }} on {{ $letter->signed_at }}.</p>
+        @endif
     </main>
 </body>
 </html>

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 final class PrivacyRequestController extends Controller
 {
@@ -32,6 +33,9 @@ final class PrivacyRequestController extends Controller
             'details' => Crypt::decryptString($row->encrypted_details),
             'outcome' => $row->encrypted_outcome !== null ? Crypt::decryptString($row->encrypted_outcome) : null,
         ];
+        if (isset($row->has_file)) {
+            $data['has_file'] = (bool) $row->has_file;
+        }
         if ($review) {
             $data['requester'] = $row->requester_name;
         }
@@ -47,6 +51,9 @@ final class PrivacyRequestController extends Controller
     public function index(Request $request)
     {
         $rows = $this->requests($request)->where('requester_id', $request->user()->id)
+            ->select('privacy_requests.*')
+            ->selectSub(DB::table('privacy_request_files')->selectRaw('COUNT(*)')
+                ->whereColumn('privacy_request_id', 'privacy_requests.id'), 'has_file')
             ->latest('id')->paginate(20)->through(fn ($row) => $this->present($row));
 
         return $this->json($rows->toArray());
@@ -117,11 +124,29 @@ final class PrivacyRequestController extends Controller
         return $this->json($rows->toArray());
     }
 
+    public function download(Request $request, string $uuid)
+    {
+        $row = $this->requests($request)->where('requester_id', $request->user()->id)
+            ->where('uuid', $uuid)->where('kind', 'access')->where('status', 'completed')
+            ->join('privacy_request_files', 'privacy_request_files.privacy_request_id', '=', 'privacy_requests.id')
+            ->first(['privacy_request_files.filename', 'privacy_request_files.encrypted_contents']);
+        abort_unless($row, 404);
+        $contents = Crypt::decryptString($row->encrypted_contents);
+        Audit::record('privacy.response_downloaded', 'security', 'privacy_request:'.$uuid);
+
+        return response()->streamDownload(static fn () => print($contents), $row->filename, [
+            'Cache-Control' => 'private, no-store',
+            'Content-Type' => 'application/octet-stream',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function review(Request $request, string $uuid)
     {
         $this->authorizeReviewer($request);
         $data = $request->validate(['version' => 'required|integer|min:1', 'status' => 'required|in:in_review,completed,declined',
-            'outcome' => 'required_if:status,completed,declined|nullable|string|max:3000']);
+            'outcome' => 'required_if:status,completed,declined|nullable|string|max:3000',
+            'response_file' => 'nullable|file|mimes:pdf,txt,csv,json|extensions:pdf,txt,csv,json|max:2048']);
         $user = $request->user();
 
         return DB::transaction(function () use ($request, $uuid, $data, $user) {
@@ -131,9 +156,19 @@ final class PrivacyRequestController extends Controller
             abort_if((int) $row->requester_id === $user->id, 403);
             abort_unless((int) $row->version === (int) $data['version'] && in_array($row->status, self::OPEN, true)
                 && $row->status !== $data['status'], 409, 'The request changed. Reload it before reviewing.');
+            if ($file = $data['response_file'] ?? null) {
+                if ($row->kind !== 'access' || $data['status'] !== 'completed') {
+                    throw ValidationException::withMessages(['response_file' => 'Files are available for completed data access requests.']);
+                }
+                DB::table('privacy_request_files')->insert([
+                    'privacy_request_id' => $row->id,
+                    'filename' => 'privacy-response.'.strtolower($file->getClientOriginalExtension()),
+                    'encrypted_contents' => Crypt::encryptString($file->get()),
+                ]);
+            }
             $query->update(['status' => $data['status'], 'version' => $row->version + 1, 'reviewer_id' => $user->id,
                 'encrypted_outcome' => isset($data['outcome']) ? Crypt::encryptString($data['outcome']) : null, 'updated_at' => now()]);
-            Audit::record('privacy.request_reviewed', 'security', 'privacy_request:'.$uuid, ['status' => $data['status']]);
+            Audit::record('privacy.request_reviewed', 'security', 'privacy_request:'.$uuid, ['status' => $data['status'], 'response_file' => $file !== null]);
 
             return $this->json($this->present($query->first()));
         }, 3);

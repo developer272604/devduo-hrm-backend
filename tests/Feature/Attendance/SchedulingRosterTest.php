@@ -4,6 +4,7 @@ namespace Tests\Feature\Attendance;
 
 use App\Domain\Attendance\Contracts\AttendanceRecalculator;
 use App\Domain\Attendance\Contracts\LockGuard;
+use App\Domain\Attendance\Contracts\LeaveDataProvider;
 use App\Domain\Attendance\Models\Roster;
 use App\Domain\Attendance\Models\RosterEntry;
 use App\Domain\Attendance\Models\Shift;
@@ -290,6 +291,128 @@ class SchedulingRosterTest extends TestCase
     {
         $u = app(\App\Domain\Access\WorkspaceProvisioner::class)->create('Beta', 'beta', 'admin@beta.test', 'StrongPassword123');
         $this->signIn($u);
+    }
+
+    public function test_roster_coverage_counts_drafts_and_excludes_approved_leave(): void
+    {
+        $roster = $this->roster(from: '2026-11-02', to: '2026-11-02');
+        $date = '2026-11-02';
+        $shift = $this->shift('DAY');
+        $evening = $this->shift('EVENING', '13:00', '22:00');
+        $available = $this->hire('Available Person');
+        $patient = $this->hire('Person Away');
+        $partial = $this->hire('Partial Day');
+        $off = $this->hire('Person Off');
+        $this->set($roster, $available, $date, $shift);
+        foreach ([$patient, $partial] as $employee) {
+            $this->set($roster, $employee, $date, $evening);
+        }
+        $this->set($roster, $off, $date, null, type: 'off');
+        $this->mock(LeaveDataProvider::class, function ($provider) use ($patient, $partial, $date) {
+            $provider->shouldReceive('coverageForRange')->times(3)->withArgs(fn ($ids, $from, $to) =>
+                in_array($patient->id, $ids, true) && in_array($partial->id, $ids, true) && $from === $date && $to === $date
+            )->andReturn([
+                $patient->id.'|'.$date => ['portion' => 'full_day'],
+                $partial->id.'|'.$date => ['portion' => 'first_half'],
+            ]);
+        });
+        $this->signIn($this->admin);
+        $path = '/api/v1/rosters/'.$roster->uuid.'/coverage?from=2026-11-01&to=2026-11-03&minimum=2';
+        $this->getJson($path)->assertOk()->assertExactJson(['data' => [[
+            'date' => $date, 'scheduled' => 3, 'scheduled_minutes' => 1620, 'full_leave' => 1, 'partial_leave' => 1,
+            'available' => 1, 'minimum' => 2, 'shortfall' => 1,
+        ]]]);
+        $this->getJson($path.'&shift_uuid='.$shift->uuid)->assertOk()->assertExactJson([
+            'shift' => ['uuid' => $shift->uuid, 'name' => 'DAY'],
+            'data' => [['date' => $date, 'scheduled' => 1, 'scheduled_minutes' => 540, 'full_leave' => 0,
+                'partial_leave' => 0, 'available' => 1, 'minimum' => 2, 'shortfall' => 1]],
+        ]);
+        $this->getJson($path.'&shift_uuid='.$evening->uuid)->assertOk()->assertExactJson([
+            'shift' => ['uuid' => $evening->uuid, 'name' => 'EVENING'],
+            'data' => [['date' => $date, 'scheduled' => 2, 'scheduled_minutes' => 1080, 'full_leave' => 1,
+                'partial_leave' => 1, 'available' => 0, 'minimum' => 2, 'shortfall' => 2]],
+        ]);
+        $this->getJson($path.'&shift_uuid='.\Illuminate\Support\Str::uuid())->assertNotFound();
+        $this->context($this->admin->tenant_id);
+        $member = $this->userWithRole('Team member', 'coverage@alpha.test', 'Member');
+        $this->signIn($member);
+        $this->getJson($path)->assertForbidden();
+    }
+
+    public function test_saved_coverage_targets_are_specific_to_manager_date_and_shift(): void
+    {
+        $roster = $this->roster(from: '2026-11-02', to: '2026-11-03');
+        $shift = $this->shift('DAY');
+        $this->signIn($this->admin);
+        $coverage = "/api/v1/rosters/{$roster->uuid}/coverage";
+        $query = '?from=2026-11-02&to=2026-11-03&minimum=2';
+        $target = ['date' => '2026-11-02', 'shift_uuid' => $shift->uuid];
+        $this->putJson($coverage.'/target', $target + ['minimum' => 4])->assertOk();
+        $this->putJson($coverage.'/target', $target + ['minimum' => 0])->assertOk();
+        $this->assertDatabaseCount('roster_coverage_targets', 1);
+        $this->getJson($coverage.$query.'&shift_uuid='.$shift->uuid)->assertOk()
+            ->assertJsonPath('data.0.minimum', 0)->assertJsonPath('data.0.saved_minimum', 0)
+            ->assertJsonPath('data.0.shortfall', 0)->assertJsonPath('data.1.minimum', 2);
+        $this->getJson($coverage.$query)->assertOk()->assertJsonPath('data.0.minimum', 2);
+        $this->putJson($coverage.'/target', ['date' => '2026-11-04', 'minimum' => 5])->assertUnprocessable();
+        $this->context($this->admin->tenant_id);
+        $otherManager = $this->userWithRole($this->admin->roles()->firstOrFail()->name, 'other-planner@alpha.test');
+        $this->signIn($otherManager);
+        $this->getJson($coverage.$query.'&shift_uuid='.$shift->uuid)->assertOk()->assertJsonPath('data.0.minimum', 2);
+        $this->signIn($this->admin);
+        $this->putJson($coverage.'/target', $target + ['minimum' => null])->assertOk();
+        $this->assertDatabaseCount('roster_coverage_targets', 0);
+        $this->getJson($coverage.$query.'&shift_uuid='.$shift->uuid)->assertOk()->assertJsonPath('data.0.minimum', 2);
+        $this->context($this->admin->tenant_id);
+        $member = $this->userWithRole('Team member', 'target-member@alpha.test');
+        $this->signIn($member);
+        $this->putJson($coverage.'/target', $target + ['minimum' => 4])->assertForbidden();
+        $this->bootSecondTenant();
+        $this->putJson($coverage.'/target', $target + ['minimum' => 4])->assertNotFound();
+    }
+
+    public function test_shift_bidding_awards_one_draft_to_an_eligible_employee(): void
+    {
+        $date = '2026-11-03';
+        $roster = $this->roster();
+        $shift = $this->shift('OPEN');
+        $employee = $this->hire('Available Person', ['role' => 'Team member']);
+        $outside = $this->hire('Outside Person', ['role' => 'Team member']);
+        $this->set($roster, $employee, $date, null, type: 'off');
+
+        $this->signIn($this->admin);
+        $path = '/api/v1/rosters/'.$roster->uuid.'/open-shifts';
+        $opening = $this->postJson($path, ['shift_uuid' => $shift->uuid, 'date' => $date])->assertCreated()->json('uuid');
+        $this->postJson($path, ['shift_uuid' => $shift->uuid, 'date' => $date])->assertConflict();
+        $url = '/api/v1/shift-openings/'.$opening;
+
+        $this->signIn($outside->person->user);
+        $this->getJson('/api/v1/shift-openings')->assertJsonCount(0, 'data');
+        $this->postJson($url.'/bid', ['apply' => true])->assertNotFound();
+
+        $this->signIn($employee->person->user);
+        $this->getJson('/api/v1/shift-openings')->assertJsonPath('data.0.uuid', $opening);
+        $this->postJson($url.'/bid', ['apply' => true])->assertNoContent();
+        $this->postJson($url.'/bid', ['apply' => false])->assertNoContent();
+        $this->postJson($url.'/bid', ['apply' => true])->assertNoContent();
+        $decision = ['action' => 'award', 'employee_uuid' => $employee->uuid];
+        $this->postJson($url.'/decision', $decision)->assertForbidden();
+
+        $this->signIn($this->admin);
+        $this->getJson($url.'/bids')->assertJsonPath('data.0.uuid', $employee->uuid);
+        $this->mock(LeaveDataProvider::class, function ($provider) use ($employee, $date) {
+            $provider->shouldReceive('coverage')->twice()->with($employee->id, $date)
+                ->andReturn(['portion' => 'full_day'], null);
+        });
+        $this->postJson($url.'/decision', $decision)->assertUnprocessable();
+        $this->assertDatabaseHas('roster_shift_openings', ['uuid' => $opening, 'status' => 'open']);
+        $this->postJson($url.'/decision', $decision)->assertNoContent();
+        $this->postJson($url.'/decision', $decision)->assertConflict();
+        $this->assertDatabaseHas('roster_entries', ['roster_id' => $roster->id, 'employee_id' => $employee->id,
+            'work_date' => $date, 'shift_id' => $shift->id, 'status' => 'draft']);
+
+        $this->signIn($employee->person->user);
+        $this->getJson('/api/v1/shift-openings')->assertJsonPath('data.0.awarded_to_me', true);
     }
 
     public function test_roster_grid_query_count_does_not_grow_with_employees(): void

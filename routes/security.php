@@ -27,6 +27,7 @@ Route::prefix('v1/security')->middleware('module:security')->group(function () {
 
     Route::get('privacy-requests', [PrivacyRequestController::class, 'index']);
     Route::post('privacy-requests', [PrivacyRequestController::class, 'create'])->middleware('throttle:10,1');
+    Route::get('privacy-requests/{uuid}/file', [PrivacyRequestController::class, 'download'])->whereUuid('uuid');
     Route::post('privacy-requests/{uuid}/withdraw', [PrivacyRequestController::class, 'withdraw'])->whereUuid('uuid');
     Route::get('privacy-review', [PrivacyRequestController::class, 'queue'])->middleware('permission:security.privacy.manage');
     Route::post('privacy-review/{uuid}', [PrivacyRequestController::class, 'review'])->whereUuid('uuid')->middleware('permission:security.privacy.manage');

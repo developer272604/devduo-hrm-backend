@@ -24,6 +24,10 @@ final class ReportDelivery
 {
     public const TTL_DAYS = 7;
 
+    private const EMAIL_ATTEMPTS = 3;
+
+    private const EMAIL_RETRY_MINUTES = 15;
+
     public function __construct(private AnalyticsService $analytics, private NotificationService $notifications) {}
 
     public static function nextRun(string $frequency, ?int $dayOfWeek, ?int $dayOfMonth, string $time, CarbonImmutable $after, string $tz): CarbonImmutable
@@ -82,6 +86,7 @@ final class ReportDelivery
     {
         $now ??= CarbonImmutable::now('UTC');
         $stats = ['processed' => 0, 'sent' => 0, 'skipped' => 0];
+        $this->retryEmails($now);
         $due = Schedule::query()->where('active', true)->where('next_run_at', '<=', $now)->orderBy('next_run_at')->get();
         foreach ($due as $schedule) {
             $fresh = Schedule::query()->where('id', $schedule->id)->where('active', true)->where('next_run_at', '<=', $now)->first();
@@ -109,13 +114,16 @@ final class ReportDelivery
             $delivery = Delivery::query()->firstOrCreate(['schedule_id' => $s->id, 'recipient_id' => $recipientId, 'slot_key' => $slot, 'channel' => 'in_app'], ['status' => 'pending', 'attempts' => 0]);
             if (in_array($delivery->status, ['sent', 'skipped_permission', 'skipped_blocked'], true) || $delivery->attempts >= 3) {
                 $statuses[] = $delivery->status;
+                if ($delivery->status === 'sent' && in_array('email', (array) $s->channels, true)) {
+                    $this->queueEmail($s, $slot, (int) $recipientId);
+                }
 
                 continue;
             }
             $delivery->forceFill(['attempts' => $delivery->attempts + 1, 'last_attempt_at' => now()])->save();
             $statuses[] = $this->deliver($delivery, $s, $report, $owner, (int) $recipientId);
             if (in_array('email', (array) $s->channels, true)) {
-                $this->email($s, $slot, (int) $recipientId, $delivery->fresh());
+                $this->queueEmail($s, $slot, (int) $recipientId);
             }
         }
 
@@ -157,23 +165,75 @@ final class ReportDelivery
         return $this->finish($delivery, 'sent', null);
     }
 
-    private function email(Schedule $s, string $slot, int $recipientId, Delivery $inApp): void
+    private function queueEmail(Schedule $schedule, string $slot, int $recipientId): void
     {
-        $row = Delivery::query()->firstOrCreate(['schedule_id' => $s->id, 'recipient_id' => $recipientId, 'slot_key' => $slot, 'channel' => 'email'], ['status' => 'pending', 'attempts' => 0]);
-        if (in_array($row->status, ['sent', 'unavailable'], true)) {
+        $email = Delivery::query()->firstOrCreate([
+            'schedule_id' => $schedule->id, 'recipient_id' => $recipientId, 'slot_key' => $slot, 'channel' => 'email',
+        ], ['status' => 'pending', 'attempts' => 0]);
+
+        if ($email->status === 'pending') {
+            $this->attemptEmail($email, CarbonImmutable::now('UTC'));
+        }
+    }
+
+    private function retryEmails(CarbonImmutable $now): void
+    {
+        Delivery::query()->where('channel', 'email')->where('attempts', '<', self::EMAIL_ATTEMPTS)
+            ->where(fn ($q) => $q->where('status', 'pending')->orWhere(fn ($retry) => $retry
+                ->where('status', 'failed')->where('last_attempt_at', '<=', $now->subMinutes(self::EMAIL_RETRY_MINUTES))))
+            ->chunkById(100, function ($rows) use ($now) {
+                foreach ($rows as $row) {
+                    $this->attemptEmail($row, $now);
+                }
+            });
+    }
+
+    private function attemptEmail(Delivery $email, CarbonImmutable $now): void
+    {
+        // Claim the attempt before contacting SMTP. A process exit after sending leaves an uncertain outcome.
+        $claimed = Delivery::query()->whereKey($email->id)->where('status', $email->status)
+            ->where('attempts', $email->attempts)->update([
+                'status' => 'sending', 'attempts' => $email->attempts + 1, 'last_attempt_at' => $now,
+                'reason' => 'The provider has not confirmed the outcome of this attempt.',
+            ]);
+        if (! $claimed) {
             return;
         }
-        $adapter = app()->bound(ReportEmailAdapter::class) ? app(ReportEmailAdapter::class) : new NullReportEmailAdapter;
-        $status = 'unavailable';
-        $reason = 'No email provider is configured; the in-app notification was used.';
-        if ($inApp->status !== 'sent') {
-            $reason = 'In-app delivery was not completed, so email was not attempted.';
-        } elseif ($adapter->isConfigured()) {
-            $user = User::query()->find($recipientId);
-            $status = $user && $adapter->send($user, 'Scheduled report ready', 'A scheduled report is waiting in the workspace.', '/analytics/schedules?delivery='.$inApp->uuid) ? 'sent' : 'failed';
-            $reason = $status === 'sent' ? null : 'The email adapter reported a failure.';
+
+        $email->refresh();
+        $schedule = Schedule::query()->find($email->schedule_id);
+        $report = $schedule ? Report::query()->find($schedule->report_id) : null;
+        $recipient = User::query()->where('tenant_id', $email->tenant_id)->find($email->recipient_id);
+        $owner = $schedule ? User::query()->where('tenant_id', $email->tenant_id)->find($schedule->owner_id) : null;
+        if (! $schedule?->active || ! $report || ! $recipient || ! $owner?->active
+            || ! $owner->allows('analytics.export') || ! $owner->allows('analytics.dashboards.manage')
+            || ! in_array('analytics', $recipient->tenant->settings['modules'] ?? [], true)
+            || ! in_array('email', (array) $schedule->channels, true)
+            || ! in_array((int) $recipient->id, array_map('intval', (array) $schedule->recipient_ids), true)
+            || $this->ineligible($recipient, $report->spec)) {
+            $this->finish($email, 'skipped_permission', 'The schedule or recipient is no longer eligible.');
+
+            return;
         }
-        $row->forceFill(['attempts' => $row->attempts + 1, 'last_attempt_at' => now(), 'status' => $status, 'reason' => $reason])->save();
+
+        $inApp = Delivery::query()->where('schedule_id', $email->schedule_id)
+            ->where('recipient_id', $email->recipient_id)->where('slot_key', $email->slot_key)
+            ->where('channel', 'in_app')->where('status', 'sent')->whereNotNull('path')->where('expires_at', '>', $now)->first();
+        if (! $inApp || ! Storage::disk('local')->exists($inApp->path)) {
+            $this->finish($email, 'unavailable', 'The in-app report is unavailable or expired.');
+
+            return;
+        }
+
+        $adapter = app()->bound(ReportEmailAdapter::class) ? app(ReportEmailAdapter::class) : new NullReportEmailAdapter;
+        if (! $adapter->isConfigured()) {
+            $this->finish($email, 'unavailable', 'No email provider is configured; the in-app notification was used.');
+
+            return;
+        }
+
+        $sent = $adapter->send($recipient, 'Scheduled report ready', 'A scheduled report is waiting in the workspace.', '/analytics/schedules?delivery='.$inApp->uuid);
+        $this->finish($email, $sent ? 'sent' : 'failed', $sent ? null : 'The email adapter reported a failure.');
     }
 
     private function finish(Delivery $d, string $status, ?string $reason): string

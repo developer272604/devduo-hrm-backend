@@ -12,7 +12,7 @@ class AnalyticsDeliverReports extends Command
 {
     protected $signature = 'analytics:deliver-reports {--tenant= : Only this tenant id}';
 
-    protected $description = 'Deliver due scheduled analytics reports in-app (idempotent per schedule slot and recipient) and purge expired files';
+    protected $description = 'Deliver due analytics reports, retry failed report emails and purge expired files';
 
     public function handle(TenantRunner $runner): int
     {

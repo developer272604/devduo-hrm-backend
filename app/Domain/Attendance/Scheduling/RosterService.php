@@ -3,6 +3,7 @@
 namespace App\Domain\Attendance\Scheduling;
 
 use App\Domain\Access\DataScope;
+use App\Domain\Attendance\Contracts\LeaveDataProvider;
 use App\Domain\Attendance\Models\Roster;
 use App\Domain\Attendance\Models\RosterEntry;
 use App\Domain\Attendance\Models\Shift;
@@ -14,6 +15,7 @@ use App\Domain\Tenancy\TenantContext;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Roster model: per (roster, employee, date) at most one DRAFT row and one PUBLISHED row.
@@ -436,10 +438,19 @@ final class RosterService
     /** Employee ids a roster is about (scope or entries), restricted to the viewer's data scope, paginated. */
     public function scopedEmployees(Roster $roster, User $viewer, string $from, array $extraUuids, int $page, int $perPage, ?string $search = null): array
     {
+        $q = $this->scopedEmployeeQuery($roster, $viewer, $extraUuids, $search);
+        $total = (clone $q)->count();
+        $rows = $q->orderBy('people.display_name')->orderBy('employees.id')->forPage($page, $perPage)->get();
+
+        return ['employees' => $rows, 'total' => $total];
+    }
+
+    private function scopedEmployeeQuery(Roster $roster, User $viewer, array $extraUuids = [], ?string $search = null): Builder
+    {
         $q = Employee::query()->join('people', 'people.id', '=', 'employees.person_id')->select('employees.*', 'people.display_name');
         app(DataScope::class)->constrain($q, $viewer, 'attendance.roster.manage', 'employees.id');
         $scopeId = $roster->scope_id;
-        $q->where(function ($w) use ($roster, $scopeId, $from, $extraUuids) {
+        $q->where(function ($w) use ($roster, $scopeId, $extraUuids) {
             $w->whereIn('employees.id', RosterEntry::query()->where('roster_id', $roster->id)->select('employee_id'));
             if ($extraUuids) {
                 $w->orWhereIn('employees.uuid', $extraUuids);
@@ -454,10 +465,73 @@ final class RosterService
         if ($search) {
             $q->where('people.display_name', 'like', '%'.$search.'%');
         }
-        $total = (clone $q)->count();
-        $rows = $q->orderBy('people.display_name')->orderBy('employees.id')->forPage($page, $perPage)->get();
+        return $q;
+    }
 
-        return ['employees' => $rows, 'total' => $total];
+    private function coverageTargetKey(Roster $roster, User $viewer, ?Shift $shift): array
+    {
+        return ['roster_id' => $roster->id, 'user_id' => $viewer->id, 'shift_key' => $shift?->uuid ?? 'all'];
+    }
+
+    public function saveCoverageTarget(Roster $roster, User $viewer, ?Shift $shift, string $date, ?int $minimum): void
+    {
+        $key = $this->coverageTargetKey($roster, $viewer, $shift) + ['work_date' => $date];
+        $targets = DB::table('roster_coverage_targets');
+        if ($minimum === null) {
+            $targets->where($key)->delete();
+            return;
+        }
+
+        $targets->upsert([$key + ['minimum' => $minimum]], array_keys($key), ['minimum']);
+    }
+
+    public function coverage(Roster $roster, User $viewer, string $from, string $to, int $minimum, ?Shift $shift = null): array
+    {
+        $counts = array_fill_keys(DatabaseScheduleResolver::dates($from, $to), ['scheduled' => 0, 'full_leave' => 0, 'partial_leave' => 0, 'scheduled_minutes' => 0]);
+        if ($counts === []) {
+            return [];
+        }
+        $targets = DB::table('roster_coverage_targets')->where($this->coverageTargetKey($roster, $viewer, $shift))
+            ->whereBetween('work_date', [$from, $to])->pluck('minimum', 'work_date');
+        $shiftId = $shift?->id;
+        $leave = app(LeaveDataProvider::class);
+        $this->scopedEmployeeQuery($roster, $viewer)->select('employees.id')
+            ->chunkById(100, function ($employees) use ($roster, $from, $to, $leave, $shiftId, &$counts) {
+                $ids = $employees->pluck('id')->all();
+                $drafts = RosterEntry::query()->where('roster_id', $roster->id)->where('status', 'draft')
+                    ->whereIn('employee_id', $ids)->whereBetween('work_date', [$from, $to])->get();
+                $overlay = [];
+                foreach ($drafts as $draft) {
+                    $overlay[$draft->employee_id][$draft->work_date] = ['entry_type' => $draft->entry_type, 'shift_id' => $draft->shift_id];
+                }
+                $decider = ScheduleDecider::load($ids, $from, $to, $overlay);
+                $approved = $leave->coverageForRange($ids, $from, $to);
+                foreach ($ids as $id) {
+                    foreach ($counts as $date => &$day) {
+                        $decision = $decider->decide($id, $date);
+                        if ($decision['kind'] !== 'working' || ($shiftId !== null && (int) ($decision['shift']['id'] ?? 0) !== $shiftId)) {
+                            continue;
+                        }
+                        $day['scheduled']++;
+                        $day['scheduled_minutes'] += $this->resolver->materialize($decision)->requiredMinutes;
+                        if (isset($approved[$id.'|'.$date])) {
+                            $day[$approved[$id.'|'.$date]['portion'] === 'full_day' ? 'full_leave' : 'partial_leave']++;
+                        }
+                    }
+                    unset($day);
+                }
+            }, 'employees.id', 'id');
+
+        $days = [];
+        foreach ($counts as $date => $count) {
+            $available = $count['scheduled'] - $count['full_leave'] - $count['partial_leave'];
+            $target = $targets->has($date) ? (int) $targets[$date] : null;
+            $effectiveMinimum = $target ?? $minimum;
+            $days[] = $count + ['date' => $date, 'available' => $available, 'minimum' => $effectiveMinimum,
+                'shortfall' => max(0, $effectiveMinimum - $available)] + ($target === null ? [] : ['saved_minimum' => $target]);
+        }
+
+        return $days;
     }
 
     /** Draft entries of this roster merged over a proposed overlay (so validation sees the whole plan). */

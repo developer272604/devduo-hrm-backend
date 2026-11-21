@@ -3,6 +3,7 @@
 namespace Tests\Feature\Security;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\Concerns\PeopleFixtures;
@@ -57,4 +58,42 @@ final class PrivacyRequestsTest extends TestCase
         $this->getJson($review)->assertJsonCount(0, 'data');
         $this->postJson($review.'/'.$uuid, ['status' => 'in_review', 'version' => 1])->assertNotFound();
     }
+
+    public function test_completed_access_response_file_is_encrypted_and_downloadable_only_by_requester(): void
+    {
+        $this->bootTenant();
+        $admin = $this->admin;
+        $employee = $this->hire('Asha Rao', ['role' => 'Team member'])->person->user;
+        $other = $this->hire('Other Member', ['role' => 'Team member'])->person->user;
+        $base = '/api/v1/security/privacy-requests';
+        $this->signIn($employee);
+        $id = $this->postJson($base, ['request_key' => (string) Str::uuid(), 'kind' => 'access',
+            'details' => 'Please share my records.'])->assertCreated()->json('uuid');
+        $path = $base.'/'.$id.'/file';
+        $review = '/api/v1/security/privacy-review/'.$id;
+        $this->getJson($path)->assertNotFound();
+        $private = 'Private employee record.';
+        $this->signIn($admin);
+        $payload = ['version' => 1, 'status' => 'completed', 'outcome' => 'Your response is attached.'];
+        $this->post($review, [...$payload, 'status' => 'declined', 'response_file' => UploadedFile::fake()->createWithContent('response.txt', $private)],
+            ['Accept' => 'application/json'])->assertUnprocessable();
+        $this->post($review, [...$payload, 'response_file' => UploadedFile::fake()->createWithContent('response.html', '<html></html>')],
+            ['Accept' => 'application/json'])->assertUnprocessable();
+        $this->post($review, [...$payload, 'response_file' => UploadedFile::fake()->createWithContent('response.txt', $private)],
+            ['Accept' => 'application/json'])->assertOk();
+        $this->assertStringNotContainsString($private, DB::table('privacy_request_files')->value('encrypted_contents'));
+        $this->getJson($path)->assertNotFound();
+        $this->signIn($other);
+        $this->getJson($path)->assertNotFound();
+        $this->signIn($employee);
+        $this->getJson($base)->assertJsonPath('data.0.has_file', true)->assertJsonMissingPath('data.0.encrypted_contents');
+        $download = $this->get($path)->assertOk()->assertDownload('privacy-response.txt');
+        $this->assertStringContainsString('no-store', $download->headers->get('Cache-Control'));
+        $this->assertSame($private, $download->streamedContent());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'privacy.response_downloaded']);
+        $this->bootTenant('file-outside');
+        $this->signIn($this->admin);
+        $this->getJson($path)->assertNotFound();
+    }
+
 }

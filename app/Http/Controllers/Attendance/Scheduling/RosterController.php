@@ -68,6 +68,45 @@ class RosterController extends PeopleController
             'total' => $found['total'], 'current_page' => $page, 'per_page' => $per, 'last_page' => max(1, (int) ceil($found['total'] / $per))]);
     }
 
+    public function coverage(Request $r, string $uuid): JsonResponse
+    {
+        $roster = Roster::byUuid($uuid);
+        $data = $r->validate([
+            'from' => 'required|date_format:Y-m-d',
+            'to' => 'required|date_format:Y-m-d|after_or_equal:from',
+            'minimum' => 'required|integer|between:1,50000',
+            'shift_uuid' => 'nullable|uuid',
+        ]);
+        if (CarbonImmutable::parse($data['from'])->diffInDays($data['to']) >= 31) {
+            Fail::field('to', 'Choose at most 31 days for a coverage check.');
+        }
+        $from = max($data['from'], $roster->start_date);
+        $to = min($data['to'], $roster->end_date);
+
+        $shift = isset($data['shift_uuid']) ? Shift::query()->where('uuid', $data['shift_uuid'])->firstOrFail() : null;
+        $result = ['data' => $this->rosters->coverage($roster, $r->user(), $from, $to, (int) $data['minimum'], $shift)];
+        if ($shift) {
+            $result['shift'] = ['uuid' => $shift->uuid, 'name' => $shift->name];
+        }
+
+        return response()->json($result);
+    }
+
+    public function saveCoverageTarget(Request $r, string $uuid): JsonResponse
+    {
+        $roster = Roster::byUuid($uuid);
+        $data = $r->validate([
+            'date' => 'required|date_format:Y-m-d|after_or_equal:'.$roster->start_date.'|before_or_equal:'.$roster->end_date,
+            'minimum' => 'present|nullable|integer|between:0,50000',
+            'shift_uuid' => 'nullable|uuid',
+        ]);
+        $shift = isset($data['shift_uuid']) ? Shift::query()->where('uuid', $data['shift_uuid'])->firstOrFail() : null;
+        $minimum = $data['minimum'] === null ? null : (int) $data['minimum'];
+        $this->rosters->saveCoverageTarget($roster, $r->user(), $shift, $data['date'], $minimum);
+
+        return response()->json(['data' => ['date' => $data['date'], 'minimum' => $minimum]]);
+    }
+
     public function setEntry(Request $r, string $uuid): JsonResponse
     {
         $roster = Roster::byUuid($uuid);

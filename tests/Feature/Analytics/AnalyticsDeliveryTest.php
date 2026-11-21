@@ -3,6 +3,8 @@
 namespace Tests\Feature\Analytics;
 
 use App\Domain\Analytics\ReportDelivery;
+use App\Domain\Analytics\ReportEmailAdapter;
+use App\Models\User;
 use App\Models\InAppNotification;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
@@ -100,6 +102,71 @@ class AnalyticsDeliveryTest extends PerformanceTestCase
         DB::table('analytics_schedules')->update(['next_run_at' => '2026-10-08 02:30:00']);
         $this->runDelivery('2026-10-08 03:10:00');
         $this->assertCount(2, $transport->messages());
+    }
+
+    public function test_failed_email_retries_after_delay_and_rechecks_access(): void
+    {
+        $adapter = new class implements ReportEmailAdapter
+        {
+            public array $attempted = [];
+
+            public function isConfigured(): bool
+            {
+                return true;
+            }
+
+            public function send(User $to, string $subject, string $body, string $link): bool
+            {
+                $this->attempted[] = $to->id;
+
+                return count(array_filter($this->attempted, fn ($id) => $id === $to->id)) >= 2;
+            }
+        };
+        $this->app->instance(ReportEmailAdapter::class, $adapter);
+        $this->schedule(['channels' => ['in_app', 'email']]);
+        $this->runDelivery('2026-10-08 03:00:00');
+        $this->assertCount(2, $adapter->attempted);
+        $this->assertSame(2, DB::table('analytics_deliveries')->where('channel', 'email')->where('status', 'failed')->count());
+        $this->runDelivery('2026-10-08 03:10:00');
+        $this->assertCount(2, $adapter->attempted);
+
+        $this->revokeUserPermission($this->checker->id, 'analytics.view');
+        $this->runDelivery('2026-10-08 03:15:00');
+        $this->assertSame([$this->admin->id, $this->checker->id, $this->admin->id], $adapter->attempted);
+        $this->assertDatabaseHas('analytics_deliveries', ['channel' => 'email', 'recipient_id' => $this->admin->id, 'status' => 'sent', 'attempts' => 2]);
+        $this->assertDatabaseHas('analytics_deliveries', ['channel' => 'email', 'recipient_id' => $this->checker->id, 'status' => 'skipped_permission']);
+        $this->runDelivery('2026-10-08 04:00:00');
+        $this->assertCount(3, $adapter->attempted);
+    }
+
+    public function test_failed_retries_stop_at_three_attempts_and_uncertain_attempts_are_not_replayed(): void
+    {
+        $adapter = new class implements ReportEmailAdapter
+        {
+            public int $calls = 0;
+
+            public function isConfigured(): bool
+            {
+                return true;
+            }
+
+            public function send(User $to, string $subject, string $body, string $link): bool
+            {
+                $this->calls++;
+
+                return false;
+            }
+        };
+        $this->app->instance(ReportEmailAdapter::class, $adapter);
+        $this->schedule(['channels' => ['email', 'in_app']]);
+        $this->runDelivery('2026-10-08 03:00:00');
+        $this->runDelivery('2026-10-08 03:15:00');
+        DB::table('analytics_deliveries')->where('channel', 'email')->where('recipient_id', $this->checker->id)->update(['status' => 'sending']);
+        $this->runDelivery('2026-10-08 03:30:00');
+        $this->runDelivery('2026-10-08 03:45:00');
+        $this->assertSame(5, $adapter->calls);
+        $this->assertDatabaseHas('analytics_deliveries', ['channel' => 'email', 'recipient_id' => $this->admin->id, 'attempts' => 3, 'status' => 'failed']);
+        $this->assertDatabaseHas('analytics_deliveries', ['channel' => 'email', 'recipient_id' => $this->checker->id, 'attempts' => 2, 'status' => 'sending']);
     }
 
     public function test_recipients_are_rechecked_at_send_time_and_get_only_their_own_scope(): void

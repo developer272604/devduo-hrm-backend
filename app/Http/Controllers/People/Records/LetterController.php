@@ -4,6 +4,7 @@ namespace App\Http\Controllers\People\Records;
 
 use App\Domain\Access\DataScope;
 use App\Domain\Audit\Audit;
+use App\Domain\Notifications\NotificationService;
 use App\Domain\Operations\Money;
 use App\Domain\People\Models\Employee;
 use Illuminate\Database\Query\Builder;
@@ -105,7 +106,7 @@ final class LetterController extends RecordsController
             'can_manage_templates' => $canIssue && app(DataScope::class)->hasTenantWide($r->user(), 'people.documents.manage'),
             'can_acknowledge' => $this->rec()->isSelf($r->user(), $employee),
             'issued' => $this->issued($r, $employee)->latest('letters.id')
-                ->paginate(25, ['letters.uuid', 'letters.created_at', 'letters.acknowledged_at', 'template.title', 'template.kind', 'template.version']),
+                ->paginate(25, ['letters.uuid', 'letters.created_at', 'letters.acknowledged_at', 'letters.signature_requested', 'letters.signed_at', 'template.title', 'template.kind', 'template.version']),
             'templates' => $canIssue ? $templates->whereIn('id', $latest)
                 ->when(! $this->canSeeSalary($r, $employee), fn (Builder $q) => $q->where('kind', '!=', 'salary_certificate'))
                 ->get(['uuid', 'title', 'kind', 'version']) : [],
@@ -116,7 +117,7 @@ final class LetterController extends RecordsController
     {
         $employee = $this->employee($r, $uuid, 'people.documents.manage', false);
         abort_unless($this->canIssue($r, $employee), 403);
-        $data = $r->validate(['template' => 'required|uuid', 'salary_amount' => 'nullable|string|max:16',
+        $data = $r->validate(['template' => 'required|uuid', 'signature_requested' => 'sometimes|boolean', 'salary_amount' => 'nullable|string|max:16',
             'salary_currency' => 'nullable|string|in:'.implode(',', array_keys(Money::SCALES)),
             'salary_period' => 'nullable|in:monthly,annual']);
         $template = $this->templates($r)->where('uuid', $data['template'])->first();
@@ -155,11 +156,22 @@ final class LetterController extends RecordsController
         }, $template->body);
 
         $id = (string) Str::uuid();
-        DB::transaction(function () use ($id, $user, $employee, $template, $body) {
+        $signatureRequested = $r->boolean('signature_requested');
+        $recipient = $signatureRequested ? $employee->person?->user : null;
+        DB::transaction(function () use ($id, $user, $employee, $template, $body, $signatureRequested, $recipient) {
             DB::table('hr_issued_letters')->insert(['tenant_id' => $user->tenant_id, 'employee_id' => $employee->id,
                 'template_id' => $template->id, 'issued_by' => $user->id, 'uuid' => $id, 'encrypted_body' => Crypt::encryptString($body),
-                'created_at' => now(), 'updated_at' => now()]);
-            Audit::record('hr_letter.issued', 'people', 'letter:'.$id, ['kind' => $template->kind, 'template_version' => $template->version]);
+                'signature_requested' => $signatureRequested, 'created_at' => now(), 'updated_at' => now()]);
+            Audit::record('hr_letter.issued', 'people', 'letter:'.$id, ['kind' => $template->kind, 'template_version' => $template->version, 'signature_requested' => $signatureRequested]);
+            if ($recipient && (int) $recipient->tenant_id === (int) $user->tenant_id && $recipient->allows('people.view')) {
+                app(NotificationService::class)->send(
+                    $recipient->id,
+                    'HR letter ready for signature',
+                    'Review and sign the letter in your profile.',
+                    'people.letter_signature',
+                    '/people/'.$employee->uuid.'?section=documents&letters=1',
+                );
+            }
         });
 
         return response()->json(['uuid' => $id], 201);
@@ -193,20 +205,77 @@ final class LetterController extends RecordsController
         }, 3);
     }
 
+    public function sign(Request $r, string $uuid, string $letter): array
+    {
+        $employee = $this->employee($r, $uuid);
+        $user = $r->user();
+        abort_unless($this->rec()->isSelf($user, $employee), 403);
+        $data = $r->validate(['signer_name' => 'required|string|max:255', 'consent' => 'required|accepted']);
+
+        return DB::transaction(function () use ($user, $employee, $letter, $data) {
+            $query = DB::table('hr_issued_letters')->where('tenant_id', $user->tenant_id)
+                ->where('employee_id', $employee->id)->where('uuid', $letter);
+            $row = (clone $query)->lockForUpdate()->first();
+            abort_unless($row, 404);
+            abort_unless($row->signature_requested, 409, 'A signature was not requested for this letter.');
+            if ($row->signed_at !== null) {
+                return ['signed_at' => $row->signed_at];
+            }
+
+            $name = $employee->person?->legal_name;
+            if (! $name || mb_strtolower(trim($name)) !== mb_strtolower(trim($data['signer_name']))) {
+                throw ValidationException::withMessages(['signer_name' => 'Enter your full name as shown in your employee record.']);
+            }
+
+            $at = now()->toDateTimeString();
+            $query->update([
+                'signed_at' => $at,
+                'signed_by' => $user->id,
+                'encrypted_signer_name' => Crypt::encryptString($name),
+                'signed_body_sha256' => hash('sha256', Crypt::decryptString($row->encrypted_body)),
+            ]);
+            Audit::record('hr_letter.signed', 'people', 'letter:'.$letter, ['consent_version' => 1]);
+
+            return ['signed_at' => $at];
+        }, 3);
+    }
+
     public function download(Request $r, string $uuid, string $letter)
     {
         $employee = $this->employee($r, $uuid);
         abort_unless($this->canRead($r, $employee), 403);
-        $r->validate(['format' => 'nullable|in:text,print']);
+        $r->validate(['format' => 'nullable|in:text,print,pdf']);
         $row = $this->issued($r, $employee)->where('letters.uuid', $letter)->first([
-            'letters.encrypted_body', 'letters.created_at', 'template.kind', 'template.title', 'template.version',
+            'letters.encrypted_body', 'letters.created_at', 'letters.signed_at', 'letters.encrypted_signer_name',
+            'letters.signed_body_sha256', 'template.kind', 'template.title', 'template.version',
         ]);
         abort_unless($row, 404);
         Audit::record('hr_letter.downloaded', 'people', 'letter:'.$letter);
         $body = Crypt::decryptString($row->encrypted_body);
+        $signer = $row->signed_at && hash_equals((string) $row->signed_body_sha256, hash('sha256', $body))
+            ? Crypt::decryptString($row->encrypted_signer_name)
+            : null;
+
+        if ($r->input('format') === 'pdf') {
+            $pdf = new \Mpdf\Mpdf([
+                'format' => 'A4',
+                'tempDir' => storage_path('framework/letter-pdf'),
+                'autoScriptToLang' => true,
+                'autoLangToFont' => true,
+            ]);
+            $pdf->SetTitle($row->title);
+            $pdf->WriteHTML(view('people.letter-pdf', ['letter' => $row, 'body' => $body, 'signer' => $signer])->render());
+
+            return response($pdf->Output('', \Mpdf\Output\Destination::STRING_RETURN), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="'.$row->kind.'-'.$letter.'.pdf"',
+                'Cache-Control' => 'private, no-store',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
 
         if ($r->input('format') === 'print') {
-            return response()->view('people.letter-print', ['letter' => $row, 'body' => $body], 200, [
+            return response()->view('people.letter-print', ['letter' => $row, 'body' => $body, 'signer' => $signer], 200, [
                 'Cache-Control' => 'private, no-store',
                 'X-Content-Type-Options' => 'nosniff',
                 'X-Frame-Options' => 'DENY',

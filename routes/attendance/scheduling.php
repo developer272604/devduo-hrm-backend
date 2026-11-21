@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Attendance\Scheduling\RosterController;
+use App\Http\Controllers\Attendance\Scheduling\ShiftBidController;
 use App\Http\Controllers\Attendance\Scheduling\SchedulingConfigController as C;
 use Illuminate\Support\Facades\Route;
 
@@ -60,6 +61,14 @@ Route::get('rosters', [RosterController::class, 'index'])->middleware($edit);
 Route::post('rosters', [RosterController::class, 'store'])->middleware($edit);
 Route::get('rosters/{uuid}', [RosterController::class, 'show'])->middleware($edit);
 Route::patch('rosters/{uuid}', [RosterController::class, 'update'])->middleware($edit);
+Route::get('rosters/{uuid}/open-shifts', [ShiftBidController::class, 'managed'])->middleware($edit);
+Route::post('rosters/{uuid}/open-shifts', [ShiftBidController::class, 'create'])->middleware($edit);
+Route::get('shift-openings', [ShiftBidController::class, 'mine'])->middleware('permission:attendance.view');
+Route::post('shift-openings/{uuid}/bid', [ShiftBidController::class, 'bid'])->whereUuid('uuid')->middleware('permission:attendance.view');
+Route::get('shift-openings/{uuid}/bids', [ShiftBidController::class, 'bids'])->whereUuid('uuid')->middleware($edit);
+Route::post('shift-openings/{uuid}/decision', [ShiftBidController::class, 'decide'])->whereUuid('uuid')->middleware($edit);
+Route::get('rosters/{uuid}/coverage', [RosterController::class, 'coverage'])->middleware([$edit, 'throttle:12,1']);
+Route::put('rosters/{uuid}/coverage/target', [RosterController::class, 'saveCoverageTarget'])->middleware($edit);
 Route::get('rosters/{uuid}/grid', [RosterController::class, 'grid'])->middleware($edit);
 Route::post('rosters/{uuid}/entries', [RosterController::class, 'setEntry'])->middleware($edit);
 Route::post('rosters/{uuid}/entries/clear', [RosterController::class, 'clearEntry'])->middleware($edit);
