@@ -8,7 +8,9 @@ final class TravelController {
     public function show(Request $r, string $uuid) { return $this->travel->present($this->travel->visible($r->user())->where('uuid', $uuid)->firstOrFail(), $r->user()); }
     public function create(Request $r) {
         $d = $r->validate(['purpose' => 'required|string|max:500', 'destination' => 'required|string|max:200', 'starts_on' => 'required|date_format:Y-m-d',
-            'ends_on' => 'required|date_format:Y-m-d|after_or_equal:starts_on', 'timezone' => 'required|timezone', 'currency' => 'required|in:USD,EUR,GBP,INR,JPY,KWD', 'budget' => 'required|string|max:20']);
+            'ends_on' => 'required|date_format:Y-m-d|after_or_equal:starts_on', 'timezone' => 'required|timezone', 'currency' => 'required|in:USD,EUR,GBP,INR,JPY,KWD', 'budget' => 'required|string|max:20'],
+            ['ends_on.after_or_equal' => 'Return date cannot be before the departure date.'],
+            ['starts_on' => 'departure date', 'ends_on' => 'return date']);
         return response()->json($this->travel->present($this->travel->create($r->user(), $d), $r->user()), 201);
     }
     public function action(Request $r, string $uuid) {
